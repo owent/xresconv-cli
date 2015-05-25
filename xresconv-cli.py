@@ -183,7 +183,7 @@ global_cmd_suffix = ''
 if len(xconv_options['ext_args_l2']) > 0:
     global_cmd_suffix += ' ' + ' '.join(xconv_options['ext_args_l2'])
 
-
+exit_code = 0
 for conv_item in xconv_options['item']:
     if not conv_item['enable']:
         continue
@@ -197,8 +197,13 @@ for conv_item in xconv_options['item']:
     if 'utf-8' != console_encoding.lower():
         run_cmd = run_cmd.encode(console_encoding)
     cprintf_stdout([print_style.FC_GREEN], '[INFO] {0}\n', run_cmd)
+    cmd_exit_code = 0
     if xconv_options['real_run']:
-        os.system(run_cmd)
+        cmd_exit_code = os.system(run_cmd)
+    if cmd_exit_code < 0:
+        exit_code = cmd_exit_code
 # ----------------------------------------- 实际开始转换 -----------------------------------------
 
 cprintf_stdout([print_style.FC_MAGENTA], '[INFO] all jobs done.\n')
+
+exit(exit_code)
