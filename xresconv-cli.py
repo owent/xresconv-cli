@@ -18,7 +18,9 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         sys.setdefaultencoding('utf-8')
 
 xconv_options = {
+    'version': '1.0.0.0',
     'conv_list' : None,
+    'real_run': True,
     'args' : {},
     'ext_args_l1': [],
     'ext_args_l2': [],
@@ -35,18 +37,25 @@ xconv_options = {
 def print_help_msg(err_code):
     print('usage: ' + sys.argv[0] + ' [options] <convert list file> [xresloader options...]')
     print('options:')
-    print('-h                   help messages')
-    print('-s <scheme name>     only convert schemes with name <scheme name>')
+    print('-h, --help                       help messages')
+    print('-s, --scheme-name <scheme name>  only convert schemes with name <scheme name>')
+    print('-v, --version                    show version and exit')
+    print('-t, --test                       test run and show cmds')
     exit(err_code)
 
-opts, left_args = getopt.getopt(sys.argv[1:], 'f:hs:')
+opts, left_args = getopt.getopt(sys.argv[1:], 'hs:tv', ['help', 'version', 'scheme-name=', 'test'])
 for opt_key, opt_val in opts:
-    if opt_key == '-h':
+    if opt_key in ('-h', '--help'):
         print_help_msg(0)
-    elif opt_key == '-s':
+    elif opt_key in ('-v', '--version'):
+        print(xconv_options['version'])
+        exit(0)
+    elif opt_key in ('-s', '--scheme-name'):
         if xconv_options['rules']['schemes'] is None:
             xconv_options['rules']['schemes'] = {}
         xconv_options['rules']['schemes'][opt_val] = True
+    elif opt_key in ('-t', '--test'):
+        xconv_options['real_run'] = False
     else:
         print_help_msg(0)
 
@@ -188,7 +197,8 @@ for conv_item in xconv_options['item']:
     if 'utf-8' != console_encoding.lower():
         run_cmd = run_cmd.encode(console_encoding)
     cprintf_stdout([print_style.FC_GREEN], '[INFO] {0}\n', run_cmd)
-    os.system(run_cmd)
+    if xconv_options['real_run']:
+        os.system(run_cmd)
 # ----------------------------------------- 实际开始转换 -----------------------------------------
 
 cprintf_stdout([print_style.FC_MAGENTA], '[INFO] all jobs done.\n')

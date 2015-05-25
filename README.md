@@ -11,9 +11,10 @@ xresconv-cli
 ```bash
 python xresconv-cli.py [本脚本选项] <转换列表文件> [附加xresloader选项]
 本脚本选项:
--h                          帮助信息
--s <要转换的scheme名称>     按scheme名称指定要转换的表
-
+-h, --help                                  帮助信息
+-s, --scheme-name <要转换的scheme名称>      按scheme名称指定要转换的表
+-v, --version                               显示版本号
+-t, --test                                  测试运行（显示运行的脚本）
 ```
 
 示例截图
