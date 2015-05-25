@@ -163,7 +163,7 @@ def cprintf_unpack_text(fmt, text):
             ret = fmt.format(*text)
             return ret
         except Exception:
-            ret = fmt.decode(console_encoding).format(*text)
+            ret = fmt.decode('utf-8').encode(console_encoding).format(*text)
             return ret
     else:
         return fmt
