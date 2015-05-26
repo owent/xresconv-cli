@@ -171,10 +171,12 @@ def cprintf_unpack_text(fmt, text):
 def cprintf_stdout(options, fmt, *text):
     cp = print_style.engine()
     cp.stdout_with_color(options, cprintf_unpack_text(fmt, text))
+    sys.stdout.flush()
 
 def cprintf_stderr(options, fmt, *text):
     cp = print_style.engine()
     cp.stderr_with_color(options, cprintf_unpack_text(fmt, text))
+    sys.stderr.flush()
 
 if __name__ == "__main__":
     pass
