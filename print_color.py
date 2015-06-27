@@ -3,10 +3,12 @@
 
 import sys
 import os, ctypes, platform
+import cgi
 
 console_encoding = sys.getfilesystemencoding()
 
 class print_style:
+    version = '1.0.0.1'
     engine = None
 
     FC_BLACK   = 0
@@ -28,6 +30,9 @@ class print_style:
     BC_WHITE    = 15
 
     FW_BOLD    = 16
+
+    def __contains__(self, value):
+        return False
 
 class Win32ConsoleColor:
     STD_INPUT_HANDLE        = -10
@@ -132,7 +137,7 @@ class TermColor:
         for opt in options:
             style.append(TermColor.COLOR_MAP[opt])
 
-        if len(style) > 0 and os.getenv('ANSI_COLORS_DISABLED') is None:
+        if len(style) > 0:
             sys.stdout.write('\033[' + ';'.join(style) + 'm' + text + '\033[0m')
         else:
             sys.stdout.write(text)
@@ -142,20 +147,94 @@ class TermColor:
         for opt in options:
             style.append(TermColor.COLOR_MAP[opt])
 
-        if len(style) > 0 and os.getenv('ANSI_COLORS_DISABLED') is None:
+        if len(style) > 0:
             sys.stderr.write('\033[' + ';'.join(style) + 'm' + text + '\033[0m')
         else:
             sys.stderr.write(text)
 
-if 'windows' == platform.system().lower():
-    ''''' See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/winprog/winprog/windows_api_reference.asp
-    for information on Windows APIs.'''
-    Win32ConsoleColor.std_out_handle = ctypes.windll.kernel32.GetStdHandle(Win32ConsoleColor.STD_OUTPUT_HANDLE)
-    Win32ConsoleColor.std_err_handle = ctypes.windll.kernel32.GetStdHandle(Win32ConsoleColor.STD_ERROR_HANDLE)
+class HtmlColor:
+    COLOR_MAP = {
+        print_style.FC_BLACK:   'color: Black;',
+        print_style.FC_BLUE:    'color: Blue;',
+        print_style.FC_GREEN:   'color: Green;',
+        print_style.FC_CYAN:    'color: Cyan;',
+        print_style.FC_RED:     'color: Red;',
+        print_style.FC_MAGENTA: 'color: Magenta;',
+        print_style.FC_YELLOW:  'color: Yellow;',
+        print_style.FC_WHITE:   'color: White;',
 
-    print_style.engine = Win32ConsoleColor
-else:
-    print_style.engine = TermColor
+        print_style.BC_BLACK:   'background-color: Black;',
+        print_style.BC_BLUE:    'background-color: Blue;',
+        print_style.BC_GREEN:   'background-color: Green;',
+        print_style.BC_CYAN:    'background-color: Cyan;',
+        print_style.BC_RED:     'background-color: Red;',
+        print_style.BC_MAGENTA: 'background-color: Magenta;',
+        print_style.BC_YELLOW:  'background-color: Yellow;',
+        print_style.BC_WHITE:   'background-color: White;',
+
+        print_style.FW_BOLD: 'font-weight: bold;'
+    }
+
+    def stdout_with_color(self, options, text):
+        style = []
+        for opt in options:
+            style.append(HtmlColor.COLOR_MAP[opt])
+
+        if len(style) > 0:
+            sys.stdout.write('<span style="' + ' '.join(style) + '">' + cgi.escape(text) + '</span>')
+        else:
+            sys.stdout.write(cgi.escape(text))
+
+    def stderr_with_color(self, options, text):
+        style = []
+        for opt in options:
+            style.append(HtmlColor.COLOR_MAP[opt])
+
+        if len(style) > 0:
+            sys.stderr.write('<span style="' + ' '.join(style) + '">' + cgi.escape(text) + '</span>')
+        else:
+            sys.stderr.write(cgi.escape(text))
+
+class NoneColor:
+    def stdout_with_color(self, options, text):
+        sys.stdout.write(text)
+
+    def stderr_with_color(self, options, text):
+        sys.stderr.write(text)
+
+
+def cprintf_set_mode(mode_name='auto'):
+    mode_name = mode_name.lower()
+    if not mode_name or mode_name == 'auto':
+        # set by environment variable
+        if not os.getenv('CPRINTF_MODE') is None:
+            cprintf_set_mode(os.getenv('CPRINTF_MODE'))
+        elif 'windows' == platform.system().lower():
+            cprintf_set_mode('win32_console')
+        elif os.getenv('ANSI_COLORS_DISABLED') is None:
+            cprintf_set_mode('term')
+        else:
+            cprintf_set_mode('none')
+
+    elif mode_name == 'none':
+        print_style.engine = NoneColor
+
+    elif mode_name == 'term':
+        print_style.engine = TermColor
+
+    elif mode_name == 'win32_console':
+        ''''' See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/winprog/winprog/windows_api_reference.asp
+        for information on Windows APIs.'''
+        Win32ConsoleColor.std_out_handle = ctypes.windll.kernel32.GetStdHandle(Win32ConsoleColor.STD_OUTPUT_HANDLE)
+        Win32ConsoleColor.std_err_handle = ctypes.windll.kernel32.GetStdHandle(Win32ConsoleColor.STD_ERROR_HANDLE)
+
+        print_style.engine = Win32ConsoleColor
+
+    elif mode_name == 'html':
+        print_style.engine = HtmlColor
+
+    else:
+        print_style.engine = NoneColor
 
 def cprintf_unpack_text(fmt, text):
     if len(text) > 0:
@@ -178,5 +257,64 @@ def cprintf_stderr(options, fmt, *text):
     cp.stderr_with_color(options, cprintf_unpack_text(fmt, text))
     sys.stderr.flush()
 
+cprintf_set_mode('auto')
+
+""" run as a executable """
 if __name__ == "__main__":
-    pass
+    import getopt
+    def print_help_msg():
+        print('usage: ' + sys.argv[0] + ' [options...] <format message> [format parameters...]')
+        print('options:')
+        print('-h, --help                               help messages')
+        print('-v, --version                            show version and exit')
+        print('-c, --color <color name>                 set font color.(any of: black, blue, green, cyan, red, magenta, yellow, white)')
+        print('-b, --background-color <color name>      set background color.(any of: black, blue, green, cyan, red, magenta, yellow, white)')
+        print('-B, --bold                               set font weight to bold')
+        print('-m, --mode <mode name>                   set mode.(any of: auto, term, win32_console, none, html)')
+        print('-s, --output-stream <output stream>      set output stream.(any of: stdout, stderr)')
+
+    opts, left_args = getopt.getopt(sys.argv[1:], 'b:Bc:hm:s:v', [
+        'background-color=',
+        'bold',
+        'color=',
+        'help',
+        'mode=',
+        'output-stream=',
+        'version',
+    ])
+    print_stream = 'stdout'
+    print_options = []
+
+    for opt_key, opt_val in opts:
+        if opt_key in ('-b', '--background-color'):
+            full_key = ('BC_' + opt_val).upper()
+            if full_key in print_style.__dict__:
+                print_options.append(print_style.__dict__[full_key])
+
+        elif opt_key in ('-B', '--bold'):
+            print_options.append(print_style.FW_BOLD)
+
+        elif opt_key in ('-c', '--color'):
+            full_key = ('FC_' + opt_val).upper()
+            if full_key in print_style.__dict__ :
+                print_options.append(print_style.__dict__[full_key])
+
+        elif opt_key in ('-h', '--help'):
+            print_help_msg()
+            exit(0)
+
+        elif opt_key in ('-m', '--mode'):
+            cprintf_set_mode(opt_val)
+
+        elif opt_key in ('-s', '--output-stream'):
+            print_stream = opt_val
+
+        elif opt_key in ('-v', '--version'):
+            print(print_style.version)
+            exit(0)
+
+    if len(left_args) > 0:
+        if 'stdout' == print_stream:
+            cprintf_stdout(print_options, *left_args)
+        else:
+            cprintf_stderr(print_options, *left_args)
