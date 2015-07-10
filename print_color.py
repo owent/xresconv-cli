@@ -34,6 +34,10 @@ class print_style:
     def __contains__(self, value):
         return False
 
+''''' See https://msdn.microsoft.com/zh-cn/windows/apps/ms682088%28v=vs.100%29#_win32_character_attributes 
+        for color codes
+'''
+
 class Win32ConsoleColor:
     STD_INPUT_HANDLE        = -10
     STD_OUTPUT_HANDLE       = -11
