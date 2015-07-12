@@ -33,6 +33,8 @@ xconv_options = {
 
     'item': []
 }
+xconv_xml_global_nodes = []
+xconv_xml_list_item_nodes = []
 
 def print_help_msg(err_code):
     print('usage: ' + sys.argv[0] + ' [options] <convert list file> [xresloader options...]')
@@ -65,23 +67,46 @@ if 0 == len(left_args):
 xconv_options['conv_list'] = left_args.pop(0)
 xconv_options['ext_args_l2'] = left_args
 
-try:
-    xml_doc = ET.parse(xconv_options['conv_list'])
-except Exception as e:
-    print(e)
-    exit(-2)
-
-root_node = xml_doc.getroot()
-
-if root_node == None:
-    print('[ERROR] root node not found in xml')
-    print_help_msg(-3)
-
 # ========================================= 全局配置解析 =========================================
-global_nodes = root_node.findall("./global")
+''' 读取xml文件 '''
+def load_xml_file(file_path):
+    try:
+        xml_doc = ET.parse(file_path)
+    except Exception as e:
+        print(e)
+        exit(-2)
 
-if global_nodes and len(global_nodes) > 0:
-    for global_node in global_nodes:
+    root_node = xml_doc.getroot()
+
+    if root_node == None:
+        print('[ERROR] root node not found in xml')
+        print_help_msg(-3)
+
+    # 枚举include文件
+    include_nodes = root_node.findall("./include")
+    if include_nodes and len(include_nodes) > 0:
+        dir_prefix = os.path.dirname(file_path)
+        for include_node in include_nodes:
+            include_file_path = include_node.text
+            if include_file_path and len(include_file_path) > 1:
+                if include_file_path[0] != '/' and include_file_path[1] != ':':
+                    include_file_path = os.path.join(dir_prefix, include_file_path)
+                load_xml_file(include_file_path)
+
+    global_nodes = root_node.findall("./global")
+    if global_nodes and len(global_nodes) > 0:
+        xconv_xml_global_nodes.extend(global_nodes)
+
+    list_item_nodes = root_node.findall("./list/item")
+    if list_item_nodes and len(list_item_nodes) > 0:
+        xconv_xml_list_item_nodes.extend(list_item_nodes)
+
+load_xml_file(xconv_options['conv_list'])
+
+
+''' global配置解析/合并 '''
+def load_global_options(gns):
+    for global_node in gns:
         for global_option in global_node:
             tag_name = global_option.tag.lower()
             text_value = global_option.text
@@ -123,6 +148,9 @@ if global_nodes and len(global_nodes) > 0:
             else:
                 print('[ERROR] unknown global configure ' + tag_name)
 
+if xconv_xml_global_nodes and len(xconv_xml_global_nodes) > 0:
+    load_global_options(xconv_xml_global_nodes)
+
 # ----------------------------------------- 全局配置解析 -----------------------------------------
 
 conv_list_dir = os.path.dirname(xconv_options['conv_list'])
@@ -137,34 +165,39 @@ if not os.path.exists(xconv_options['xresloader_path']):
 
 # ========================================= 转换表配置解析 =========================================
 
-for item in root_node.findall("./list/item"):
-    conv_item_obj = {
-        'file': item.attrib['file'],
-        'scheme': item.attrib['scheme'],
-        'options': [],
-        'enable': False
-    }
+''' 转换项配置解析/合并 '''
+def load_list_item_nodes(lis):
+    for item in lis:
+        conv_item_obj = {
+            'file': item.attrib['file'],
+            'scheme': item.attrib['scheme'],
+            'options': [],
+            'enable': False
+        }
 
-    # 局部选项
-    for local_option in item.findall('./option'):
-        tag_name = local_option.tag.lower()
-        text_value = local_option.text
-        if text_value:
-            trip_value = text_value.strip()
-        else:
-            trip_value = None
+        # 局部选项
+        for local_option in item.findall('./option'):
+            tag_name = local_option.tag.lower()
+            text_value = local_option.text
+            if text_value:
+                trip_value = text_value.strip()
+            else:
+                trip_value = None
 
-        if not trip_value:
-            continue
+            if not trip_value:
+                continue
 
-        if 'option' == tag_name:
-            conv_item_obj['options'].append(trip_value)
+            if 'option' == tag_name:
+                conv_item_obj['options'].append(trip_value)
 
-    # 转换规则
-    if xconv_options['rules']['schemes'] is None or conv_item_obj['scheme'] in xconv_options['rules']['schemes']:
-        conv_item_obj['enable'] = True
+        # 转换规则
+        if xconv_options['rules']['schemes'] is None or conv_item_obj['scheme'] in xconv_options['rules']['schemes']:
+            conv_item_obj['enable'] = True
 
-    xconv_options['item'].append(conv_item_obj)
+        xconv_options['item'].append(conv_item_obj)
+
+if xconv_xml_list_item_nodes and len(xconv_xml_list_item_nodes) > 0:
+    load_list_item_nodes(xconv_xml_list_item_nodes)
 # ----------------------------------------- 转换配置解析 -----------------------------------------
 
 
