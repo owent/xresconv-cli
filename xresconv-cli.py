@@ -6,7 +6,9 @@ import os, platform, locale
 import shutil, re, string
 import xml.etree.ElementTree as ET
 import glob, getopt
+from multiprocessing import cpu_count
 from print_color import print_style, cprintf_stdout, cprintf_stderr
+from optparse import OptionParser
 
 console_encoding = sys.getfilesystemencoding()
 
@@ -18,7 +20,7 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         sys.setdefaultencoding('utf-8')
 
 xconv_options = {
-    'version': '1.0.0.0',
+    'version': '1.0.1.0',
     'conv_list' : None,
     'real_run': True,
     'args' : {},
@@ -27,39 +29,33 @@ xconv_options = {
     'work_dir': '.',
     'xresloader_path': 'xresloader.jar',
 
-    'rules': {
-        'schemes': None
-    },
-
-    'item': []
+    'item': [],
+    'parallelism': int((cpu_count() - 1) / 2) + 1
 }
 xconv_xml_global_nodes = []
 xconv_xml_list_item_nodes = []
 
+
+usage = "usage: %prog [options...] <convert list file> [xresloader options...]"
+parser = OptionParser(usage)
+parser.disable_interspersed_args()
+
+
+parser.add_option("-v", "--version", action="store_true", help="show version and exit", dest="version", default=False)
+parser.add_option("-s", "--scheme-name", action="append", help="only convert schemes with name <scheme name>", metavar="<scheme>",dest="rule_schemes", default=[])
+parser.add_option("-t", "--test", action="store_true", help="test run and show cmds", dest="test", default=False)
+parser.add_option("-p", "--parallelism", action="store", help="set parallelism task number(default:" + str(xconv_options['parallelism']) + ')', metavar="<number>", dest="parallelism", type="int", default=xconv_options['parallelism'])
+
+(options, left_args) = parser.parse_args()
+
+if options.version:
+    print(xconv_options['version'])
+    exit(0)
+
 def print_help_msg(err_code):
-    print('usage: ' + sys.argv[0] + ' [options] <convert list file> [xresloader options...]')
-    print('options:')
-    print('-h, --help                       help messages')
-    print('-s, --scheme-name <scheme name>  only convert schemes with name <scheme name>')
-    print('-v, --version                    show version and exit')
-    print('-t, --test                       test run and show cmds')
+    parser.print_help()
     exit(err_code)
 
-opts, left_args = getopt.getopt(sys.argv[1:], 'hs:tv', ['help', 'version', 'scheme-name=', 'test'])
-for opt_key, opt_val in opts:
-    if opt_key in ('-h', '--help'):
-        print_help_msg(0)
-    elif opt_key in ('-v', '--version'):
-        print(xconv_options['version'])
-        exit(0)
-    elif opt_key in ('-s', '--scheme-name'):
-        if xconv_options['rules']['schemes'] is None:
-            xconv_options['rules']['schemes'] = {}
-        xconv_options['rules']['schemes'][opt_val] = True
-    elif opt_key in ('-t', '--test'):
-        xconv_options['real_run'] = False
-    else:
-        print_help_msg(0)
 
 if 0 == len(left_args):
     print_help_msg(-1)
@@ -191,7 +187,7 @@ def load_list_item_nodes(lis):
                 conv_item_obj['options'].append(trip_value)
 
         # 转换规则
-        if xconv_options['rules']['schemes'] is None or conv_item_obj['scheme'] in xconv_options['rules']['schemes']:
+        if not options.rule_schemes or 0 == len(options.rule_schemes) or conv_item_obj['scheme'] in options.rule_schemes:
             conv_item_obj['enable'] = True
 
         xconv_options['item'].append(conv_item_obj)
@@ -201,9 +197,9 @@ if xconv_xml_list_item_nodes and len(xconv_xml_list_item_nodes) > 0:
 # ----------------------------------------- 转换配置解析 -----------------------------------------
 
 
-# ========================================= 实际开始转换 =========================================
+# ========================================= 生成转换命令 =========================================
 ##### 全局命令和配置
-global_cmd_prefix = 'java -jar "{0}"'.format(xconv_options['xresloader_path'])
+global_cmd_prefix = 'java -client -jar "{0}"'.format(xconv_options['xresloader_path'])
 for global_optk in xconv_options['args']:
     global_optv= xconv_options['args'][global_optk]
     global_cmd_prefix += ' ' + global_optk + ' ' + global_optv
@@ -216,7 +212,7 @@ global_cmd_suffix = ''
 if len(xconv_options['ext_args_l2']) > 0:
     global_cmd_suffix += ' ' + ' '.join(xconv_options['ext_args_l2'])
 
-exit_code = 0
+cmd_list=[]
 for conv_item in xconv_options['item']:
     if not conv_item['enable']:
         continue
@@ -229,12 +225,46 @@ for conv_item in xconv_options['item']:
     run_cmd = global_cmd_prefix + item_cmd_options + cmd_scheme_info + global_cmd_suffix
     if 'utf-8' != console_encoding.lower():
         run_cmd = run_cmd.encode(console_encoding)
-    cprintf_stdout([print_style.FC_GREEN], '[INFO] {0}\n', run_cmd)
-    cmd_exit_code = 0
-    if xconv_options['real_run']:
-        cmd_exit_code = os.system(run_cmd)
-    if cmd_exit_code < 0:
-        exit_code = cmd_exit_code
+
+    cmd_list.append(run_cmd)
+
+cmd_list.reverse()
+# ----------------------------------------- 生成转换命令 -----------------------------------------
+
+# ========================================= 实际开始转换 =========================================
+import threading
+exit_code = 0
+all_worker_thread = []
+cmd_picker_lock = threading.Lock()
+
+def worker_func():
+    global exit_code
+    while True:
+        cmd_picker_lock.acquire()
+        if len(cmd_list) <= 0:
+            cmd_picker_lock.release()
+            return 0
+
+        run_cmd = cmd_list.pop()
+        cmd_picker_lock.release()
+
+        cprintf_stdout([print_style.FC_GREEN], '[INFO] {0}\n', run_cmd)
+        cmd_exit_code = 0
+        if not options.test:
+            cmd_exit_code = os.system(run_cmd)
+        if cmd_exit_code < 0:
+            exit_code = cmd_exit_code
+
+for i in xrange(0, options.parallelism):
+    this_worker_thd = threading.Thread(target=worker_func)
+    this_worker_thd.start()
+    all_worker_thread.append(this_worker_thd)
+
+
+# 等待退出
+for thd in all_worker_thread:
+    thd.join()
+
 # ----------------------------------------- 实际开始转换 -----------------------------------------
 
 cprintf_stdout([print_style.FC_MAGENTA], '[INFO] all jobs done.\n')

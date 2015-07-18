@@ -18,7 +18,7 @@ class print_style:
     FC_RED     = 4
     FC_MAGENTA = 5
     FC_YELLOW  = 6
-    FC_WHITE    = 7
+    FC_WHITE   = 7
 
     BC_BLACK   = 8
     BC_BLUE    = 9
@@ -27,14 +27,14 @@ class print_style:
     BC_RED     = 12
     BC_MAGENTA = 13
     BC_YELLOW  = 14
-    BC_WHITE    = 15
+    BC_WHITE   = 15
 
     FW_BOLD    = 16
 
     def __contains__(self, value):
         return False
 
-''''' See https://msdn.microsoft.com/zh-cn/windows/apps/ms682088%28v=vs.100%29#_win32_character_attributes 
+''''' See https://msdn.microsoft.com/zh-cn/windows/apps/ms682088%28v=vs.100%29#_win32_character_attributes
         for color codes
 '''
 
@@ -265,60 +265,41 @@ cprintf_set_mode('auto')
 
 """ run as a executable """
 if __name__ == "__main__":
-    import getopt
-    def print_help_msg():
-        print('usage: ' + sys.argv[0] + ' [options...] <format message> [format parameters...]')
-        print('options:')
-        print('-h, --help                               help messages')
-        print('-v, --version                            show version and exit')
-        print('-c, --color <color name>                 set font color.(any of: black, blue, green, cyan, red, magenta, yellow, white)')
-        print('-b, --background-color <color name>      set background color.(any of: black, blue, green, cyan, red, magenta, yellow, white)')
-        print('-B, --bold                               set font weight to bold')
-        print('-m, --mode <mode name>                   set mode.(any of: auto, term, win32_console, none, html)')
-        print('-s, --output-stream <output stream>      set output stream.(any of: stdout, stderr)')
+    from optparse import OptionParser
+    usage = "usage: %prog [options...] <format message> [format parameters...]"
+    parser = OptionParser(usage)
 
-    opts, left_args = getopt.getopt(sys.argv[1:], 'b:Bc:hm:s:v', [
-        'background-color=',
-        'bold',
-        'color=',
-        'help',
-        'mode=',
-        'output-stream=',
-        'version',
-    ])
+    parser.add_option("-v", "--version", action="store_true", help="show version and exit", dest="verbose")
+    parser.add_option("-c", "--color", action="append", help="set font color.(any of: black, blue, green, cyan, red, magenta, yellow, white)", dest="color")
+    parser.add_option("-b", "--background-color", action="append", help="set background color.(any of: black, blue, green, cyan, red, magenta, yellow, white)", dest="background_color")
+    parser.add_option("-B", "--bold", action="append_const", help="set font weight to bold", const=print_style.FW_BOLD, dest="style")
+    parser.add_option("-m", "--mode", action="store", help="set mode.(any of: auto, term, win32_console, none, html)", dest="mode")
+    parser.add_option("-s", "--output-stream", action="store", help="set output stream.(any of: stdout, stderr)", dest="ostream", default="stdout")
+
+    (options, left_args) = parser.parse_args()
+
+    if options.verbose:
+        print(print_style.version)
+        exit(0)
+
     print_stream = 'stdout'
     print_options = []
 
-    for opt_key, opt_val in opts:
-        if opt_key in ('-b', '--background-color'):
-            full_key = ('BC_' + opt_val).upper()
-            if full_key in print_style.__dict__:
-                print_options.append(print_style.__dict__[full_key])
+    fc_list = ['FC_' + x.upper() for x in options.color or [] ]
+    bk_list = ['BC_' + y.upper() for y in options.background_color or [] ]
+    for style_list in [ fc_list, bk_list ]:
+        for style_name in style_list:
+            if style_name in print_style.__dict__ :
+                print_options.append(print_style.__dict__[style_name])
 
-        elif opt_key in ('-B', '--bold'):
-            print_options.append(print_style.FW_BOLD)
+    for style_code in options.style or []:
+        print_options.append(style_code)
 
-        elif opt_key in ('-c', '--color'):
-            full_key = ('FC_' + opt_val).upper()
-            if full_key in print_style.__dict__ :
-                print_options.append(print_style.__dict__[full_key])
-
-        elif opt_key in ('-h', '--help'):
-            print_help_msg()
-            exit(0)
-
-        elif opt_key in ('-m', '--mode'):
-            cprintf_set_mode(opt_val)
-
-        elif opt_key in ('-s', '--output-stream'):
-            print_stream = opt_val
-
-        elif opt_key in ('-v', '--version'):
-            print(print_style.version)
-            exit(0)
+    if options.mode:
+        cprintf_set_mode(options.mode)
 
     if len(left_args) > 0:
-        if 'stdout' == print_stream:
+        if 'stdout' == options.ostream:
             cprintf_stdout(print_options, *left_args)
         else:
             cprintf_stderr(print_options, *left_args)
