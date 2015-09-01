@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
+import sys, io
 import os, platform, locale
 import shutil, re, string
 import xml.etree.ElementTree as ET
-import glob, getopt
+import glob, tempfile
+from subprocess import Popen, PIPE, STDOUT
 from multiprocessing import cpu_count
 from print_color import print_style, cprintf_stdout, cprintf_stderr
 from optparse import OptionParser
@@ -20,7 +21,7 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         sys.setdefaultencoding('utf-8')
 
 xconv_options = {
-    'version': '1.0.1.0',
+    'version': '1.0.2.0',
     'conv_list' : None,
     'real_run': True,
     'args' : {},
@@ -32,6 +33,11 @@ xconv_options = {
     'item': [],
     'parallelism': int((cpu_count() - 1) / 2) + 1
 }
+
+# 默认双线程，实际测试过程中java的运行优化反而比多线程更能提升效率
+if xconv_options['parallelism'] > 2:
+    xconv_options['parallelism'] = 2
+
 xconv_xml_global_nodes = []
 xconv_xml_list_item_nodes = []
 
@@ -153,10 +159,10 @@ conv_list_dir = os.path.dirname(xconv_options['conv_list'])
 os.chdir(conv_list_dir)
 os.chdir(xconv_options['work_dir'])
 
-cprintf_stdout([print_style.FC_YELLOW], '[NOTICE] start to run conv cmds on dir: {0}\n', os.getcwd())
+cprintf_stdout([print_style.FC_YELLOW], '[NOTICE] start to run conv cmds on dir: {0}' + os.linesep, os.getcwd())
 
 if not os.path.exists(xconv_options['xresloader_path']):
-    cprintf_stderr([print_style.FC_RED], '[ERROR] xresloader not found.({0})\n', xconv_options['xresloader_path'])
+    cprintf_stderr([print_style.FC_RED], '[ERROR] xresloader not found.({0})' + os.linesep, xconv_options['xresloader_path'])
     exit(-4)
 
 # ========================================= 转换表配置解析 =========================================
@@ -199,7 +205,7 @@ if xconv_xml_list_item_nodes and len(xconv_xml_list_item_nodes) > 0:
 
 # ========================================= 生成转换命令 =========================================
 ##### 全局命令和配置
-global_cmd_prefix = 'java -client -jar "{0}"'.format(xconv_options['xresloader_path'])
+global_cmd_prefix = ''
 for global_optk in xconv_options['args']:
     global_optv= xconv_options['args'][global_optk]
     global_cmd_prefix += ' ' + global_optk + ' ' + global_optv
@@ -237,26 +243,31 @@ exit_code = 0
 all_worker_thread = []
 cmd_picker_lock = threading.Lock()
 
-def worker_func():
+def worker_func(idx):
     global exit_code
+
+    pexec = None
+    if not options.test:
+        pexec = Popen('java -client -jar "{0}" --stdin'.format(xconv_options['xresloader_path']), stdin=PIPE, stdout=None, stderr=None, shell=True)
+
     while True:
         cmd_picker_lock.acquire()
         if len(cmd_list) <= 0:
             cmd_picker_lock.release()
-            return 0
+            break
 
-        run_cmd = cmd_list.pop()
+        pexec.stdin.write(cmd_list.pop().encode())
         cmd_picker_lock.release()
+        pexec.stdin.write(os.linesep.encode())
+        pexec.stdin.flush()
 
-        cprintf_stdout([print_style.FC_GREEN], '[INFO] {0}\n', run_cmd)
-        cmd_exit_code = 0
-        if not options.test:
-            cmd_exit_code = os.system(run_cmd)
-        if cmd_exit_code < 0:
-            exit_code = cmd_exit_code
+    pexec.stdin.close()
+    cmd_exit_code = pexec.wait()
+    if cmd_exit_code < 0:
+        exit_code = cmd_exit_code
 
-for i in xrange(0, options.parallelism):
-    this_worker_thd = threading.Thread(target=worker_func)
+for i in range(0, options.parallelism):
+    this_worker_thd = threading.Thread(target=worker_func, args=[i])
     this_worker_thd.start()
     all_worker_thread.append(this_worker_thd)
 
@@ -267,6 +278,6 @@ for thd in all_worker_thread:
 
 # ----------------------------------------- 实际开始转换 -----------------------------------------
 
-cprintf_stdout([print_style.FC_MAGENTA], '[INFO] all jobs done.\n')
+cprintf_stdout([print_style.FC_MAGENTA], '[INFO] all jobs done.' + os.linesep)
 
 exit(exit_code)
