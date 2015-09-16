@@ -8,7 +8,7 @@ import cgi
 console_encoding = sys.getfilesystemencoding()
 
 class print_style:
-    version = '1.0.0.1'
+    version = '1.0.1.0'
     engine = None
 
     FC_BLACK   = 0
@@ -39,6 +39,7 @@ class print_style:
 '''
 
 class Win32ConsoleColor:
+    name = 'windows console'
     STD_INPUT_HANDLE        = -10
     STD_OUTPUT_HANDLE       = -11
     STD_ERROR_HANDLE        = -12
@@ -114,6 +115,7 @@ class Win32ConsoleColor:
             self.set_cmd_color(old_style, self.std_err_handle)
 
 class TermColor:
+    name = 'terminal'
     COLOR_MAP = {
         print_style.FC_BLACK:   '30',
         print_style.FC_BLUE:    '34',
@@ -157,6 +159,7 @@ class TermColor:
             sys.stderr.write(text)
 
 class HtmlColor:
+    name = 'html css'
     COLOR_MAP = {
         print_style.FC_BLACK:   'color: Black;',
         print_style.FC_BLUE:    'color: Blue;',
@@ -200,6 +203,7 @@ class HtmlColor:
             sys.stderr.write(cgi.escape(text))
 
 class NoneColor:
+    name = 'none'
     def stdout_with_color(self, options, text):
         sys.stdout.write(text)
 
@@ -214,6 +218,18 @@ def cprintf_set_mode(mode_name='auto'):
         if not os.getenv('CPRINTF_MODE') is None:
             cprintf_set_mode(os.getenv('CPRINTF_MODE'))
         elif 'windows' == platform.system().lower():
+            ostype_name = os.getenv('OSTYPE')
+            if not ostype_name is None:
+                ostype_name = ostype_name.lower()
+            if 'msys' == ostype_name or 'cygwin' == ostype_name:
+                cprintf_set_mode('term')
+                return
+            term_name = os.getenv('TERM')
+            if not term_name is None:
+                term_name = term_name.lower()
+                if 'xterm' == term_name[0:5] or 'vt' == term_name[0:2]:
+                    cprintf_set_mode('term')
+                    return
             cprintf_set_mode('win32_console')
         elif os.getenv('ANSI_COLORS_DISABLED') is None:
             cprintf_set_mode('term')
@@ -268,19 +284,18 @@ if __name__ == "__main__":
     from optparse import OptionParser
     usage = "usage: %prog [options...] <format message> [format parameters...]"
     parser = OptionParser(usage)
+    parser.disable_interspersed_args()
 
-    parser.add_option("-v", "--version", action="store_true", help="show version and exit", dest="verbose")
-    parser.add_option("-c", "--color", action="append", help="set font color.(any of: black, blue, green, cyan, red, magenta, yellow, white)", dest="color")
-    parser.add_option("-b", "--background-color", action="append", help="set background color.(any of: black, blue, green, cyan, red, magenta, yellow, white)", dest="background_color")
+    parser.add_option("-v", "--version", action="store_true", help="show version and exit", dest="version")
+    parser.add_option("-c", "--color", action="append", help="set font color.(any of: black, blue, green, cyan, red, magenta, yellow, white)", metavar="<color>", dest="color")
+    parser.add_option("-b", "--background-color", action="append", help="set background color.(any of: black, blue, green, cyan, red, magenta, yellow, white)", metavar="<background color>", dest="background_color")
     parser.add_option("-B", "--bold", action="append_const", help="set font weight to bold", const=print_style.FW_BOLD, dest="style")
-    parser.add_option("-m", "--mode", action="store", help="set mode.(any of: auto, term, win32_console, none, html)", dest="mode")
-    parser.add_option("-s", "--output-stream", action="store", help="set output stream.(any of: stdout, stderr)", dest="ostream", default="stdout")
+    parser.add_option("-m", "--mode", action="store", help="set mode.(any of: auto, term, win32_console, none, html)", metavar="<output mode>", dest="mode")
+    parser.add_option("-s", "--output-stream", action="store", help="set output stream.(any of: stdout, stderr)", metavar="<ostream>", dest="ostream", default="stdout")
+    parser.add_option("-e", action="store_true", help="enable interpretation of backslash escapes(just like echo command in unix like system)", dest="interp_bse", default=False)
+    parser.add_option("-E", action="store_false", help="disable interpretation of backslash escapes(just like echo command in unix like system)", dest="interp_bse")
 
     (options, left_args) = parser.parse_args()
-
-    if options.verbose:
-        print(print_style.version)
-        exit(0)
 
     print_stream = 'stdout'
     print_options = []
@@ -298,7 +313,15 @@ if __name__ == "__main__":
     if options.mode:
         cprintf_set_mode(options.mode)
 
+    if options.version:
+        print(print_style.version)
+        print('Color Engine: ' + print_style.engine.name)
+        exit(0)
+        
     if len(left_args) > 0:
+        if options.interp_bse:
+            for i in range(0, len(left_args)):
+                left_args[i] = eval(repr(left_args[i]).replace("\\\\", "\\"))
         if 'stdout' == options.ostream:
             cprintf_stdout(print_options, *left_args)
         else:
