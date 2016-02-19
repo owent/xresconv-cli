@@ -21,7 +21,7 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         sys.setdefaultencoding('utf-8')
 
 xconv_options = {
-    'version': '1.0.2.0',
+    'version': '1.0.3.0',
     'conv_list' : None,
     'real_run': True,
     'args' : {},
@@ -156,7 +156,8 @@ if xconv_xml_global_nodes and len(xconv_xml_global_nodes) > 0:
 # ----------------------------------------- 全局配置解析 -----------------------------------------
 
 conv_list_dir = os.path.dirname(xconv_options['conv_list'])
-os.chdir(conv_list_dir)
+if conv_list_dir:
+    os.chdir(conv_list_dir)
 os.chdir(xconv_options['work_dir'])
 
 cprintf_stdout([print_style.FC_YELLOW], '[NOTICE] start to run conv cmds on dir: {0}' + os.linesep, os.getcwd())
@@ -229,9 +230,6 @@ for conv_item in xconv_options['item']:
 
     cmd_scheme_info = ' -s "{:s}" -m "{:s}"'.format(conv_item['file'], conv_item['scheme'])
     run_cmd = global_cmd_prefix + item_cmd_options + cmd_scheme_info + global_cmd_suffix
-    if 'utf-8' != console_encoding.lower():
-        run_cmd = run_cmd.encode(console_encoding)
-
     cmd_list.append(run_cmd)
 
 cmd_list.reverse()
@@ -250,21 +248,31 @@ def worker_func(idx):
     if not options.test:
         pexec = Popen('java -client -jar "{0}" --stdin'.format(xconv_options['xresloader_path']), stdin=PIPE, stdout=None, stderr=None, shell=True)
 
-    while True:
-        cmd_picker_lock.acquire()
-        if len(cmd_list) <= 0:
+        while True:
+            cmd_picker_lock.acquire()
+            if len(cmd_list) <= 0:
+                cmd_picker_lock.release()
+                break
+
+            pexec.stdin.write(cmd_list.pop().encode(console_encoding))
             cmd_picker_lock.release()
-            break
+            pexec.stdin.write(os.linesep.encode(console_encoding))
+            pexec.stdin.flush()
 
-        pexec.stdin.write(cmd_list.pop().encode())
-        cmd_picker_lock.release()
-        pexec.stdin.write(os.linesep.encode())
-        pexec.stdin.flush()
+        pexec.stdin.close()
+        cmd_exit_code = pexec.wait()
+        exit_code = exit_code + cmd_exit_code
+    else:
+        this_thd_cmds = []
+        while True:
+            cmd_picker_lock.acquire()
+            if len(cmd_list) <= 0:
+                cmd_picker_lock.release()
+                break
+            this_thd_cmds.append(cmd_list.pop())
+            cmd_picker_lock.release()
 
-    pexec.stdin.close()
-    cmd_exit_code = pexec.wait()
-    if cmd_exit_code < 0:
-        exit_code = cmd_exit_code
+        cprintf_stdout([print_style.FC_GREEN], ('java -client -jar "{0}" --stdin' + os.linesep + '\t>{1}' + os.linesep).format(xconv_options['xresloader_path'], (os.linesep + '\t>').join(this_thd_cmds)))
 
 for i in range(0, options.parallelism):
     this_worker_thd = threading.Thread(target=worker_func, args=[i])
