@@ -269,7 +269,7 @@ def worker_func(idx):
             if len(cmd_list) <= 0:
                 cmd_picker_lock.release()
                 break
-            this_thd_cmds.append(cmd_list.pop())
+            this_thd_cmds.append(cmd_list.pop().encode(console_encoding))
             cmd_picker_lock.release()
 
         cprintf_stdout([print_style.FC_GREEN], ('java -client -jar "{0}" --stdin' + os.linesep + '\t>{1}' + os.linesep).format(xconv_options['xresloader_path'], (os.linesep + '\t>').join(this_thd_cmds)))
@@ -286,6 +286,6 @@ for thd in all_worker_thread:
 
 # ----------------------------------------- 实际开始转换 -----------------------------------------
 
-cprintf_stdout([print_style.FC_MAGENTA], '[INFO] all jobs done.' + os.linesep)
+cprintf_stdout([print_style.FC_MAGENTA], '[INFO] all jobs done. {0} job(s) failed.{1}'.format(exit_code, os.linesep))
 
 exit(exit_code)
