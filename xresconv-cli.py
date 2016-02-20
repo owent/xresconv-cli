@@ -269,7 +269,13 @@ def worker_func(idx):
             if len(cmd_list) <= 0:
                 cmd_picker_lock.release()
                 break
-            this_thd_cmds.append(cmd_list.pop().encode(console_encoding))
+            
+            # python2 must use encode string to bytes or there will be messy code
+            # python3 must not use encode methed because it will transform string to bytes
+            if sys.version_info.major < 3:
+                this_thd_cmds.append(cmd_list.pop().encode(console_encoding))
+            else:
+                this_thd_cmds.append(cmd_list.pop())
             cmd_picker_lock.release()
 
         cprintf_stdout([print_style.FC_GREEN], ('java -client -jar "{0}" --stdin' + os.linesep + '\t>{1}' + os.linesep).format(xconv_options['xresloader_path'], (os.linesep + '\t>').join(this_thd_cmds)))
