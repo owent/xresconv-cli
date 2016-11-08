@@ -278,7 +278,7 @@ def worker_func(idx):
                 this_thd_cmds.append(cmd_list.pop())
             cmd_picker_lock.release()
 
-        cprintf_stdout([print_style.FC_GREEN], ('java -client -jar "{0}" --stdin' + os.linesep + '\t>{1}' + os.linesep).format(xconv_options['xresloader_path'], (os.linesep + '\t>').join(this_thd_cmds)))
+        cprintf_stdout([print_style.FC_GREEN], ('java -client -Dfile.encoding=UTF-8 -jar "{0}" --stdin' + os.linesep + '\t>{1}' + os.linesep).format(xconv_options['xresloader_path'], (os.linesep + '\t>').join(this_thd_cmds)))
 
 for i in range(0, options.parallelism):
     this_worker_thd = threading.Thread(target=worker_func, args=[i])
