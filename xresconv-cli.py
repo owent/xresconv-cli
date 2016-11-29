@@ -21,7 +21,7 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         sys.setdefaultencoding('utf-8')
 
 xconv_options = {
-    'version': '1.0.3.0',
+    'version': '1.0.3.1',
     'conv_list' : None,
     'real_run': True,
     'args' : {},
@@ -31,7 +31,8 @@ xconv_options = {
     'xresloader_path': 'xresloader.jar',
 
     'item': [],
-    'parallelism': int((cpu_count() - 1) / 2) + 1
+    'parallelism': int((cpu_count() - 1) / 2) + 1,
+    'java_options': []
 }
 
 # 默认双线程，实际测试过程中java的运行优化反而比多线程更能提升效率
@@ -51,6 +52,7 @@ parser.add_option("-v", "--version", action="store_true", help="show version and
 parser.add_option("-s", "--scheme-name", action="append", help="only convert schemes with name <scheme name>", metavar="<scheme>",dest="rule_schemes", default=[])
 parser.add_option("-t", "--test", action="store_true", help="test run and show cmds", dest="test", default=False)
 parser.add_option("-p", "--parallelism", action="store", help="set parallelism task number(default:" + str(xconv_options['parallelism']) + ')', metavar="<number>", dest="parallelism", type="int", default=xconv_options['parallelism'])
+parser.add_option("-j", "--java-option", action="append", help="add java options to command(example: Xmx=2048m)", metavar="<java option>",dest="java_options", default=[])
 
 (options, left_args) = parser.parse_args()
 
@@ -146,7 +148,8 @@ def load_global_options(gns):
 
             elif 'option' == tag_name:
                 xconv_options['ext_args_l1'].append(trip_value)
-
+            elif 'java_option' == tag_name:
+                xconv_options['java_options'].append(trip_value)
             else:
                 print('[ERROR] unknown global configure ' + tag_name)
 
@@ -243,10 +246,15 @@ cmd_picker_lock = threading.Lock()
 
 def worker_func(idx):
     global exit_code
+    java_options = ""
+    if len(options.java_options) > 0:
+        java_options += ' "-{0}"'.format('" "-'.join(options.java_options))
+    if len(xconv_options['java_options']) > 0:
+        java_options += ' "{0}"'.format('" "'.join(xconv_options['java_options']))
 
     pexec = None
     if not options.test:
-        pexec = Popen('java -client -jar "{0}" --stdin'.format(xconv_options['xresloader_path']), stdin=PIPE, stdout=None, stderr=None, shell=True)
+        pexec = Popen('java -Dfile.encoding=UTF-8 {0} -jar "{1}" --stdin'.format(java_options, xconv_options['xresloader_path']), stdin=PIPE, stdout=None, stderr=None, shell=True)
 
         while True:
             cmd_picker_lock.acquire()
@@ -278,7 +286,7 @@ def worker_func(idx):
                 this_thd_cmds.append(cmd_list.pop())
             cmd_picker_lock.release()
 
-        cprintf_stdout([print_style.FC_GREEN], ('java -client -Dfile.encoding=UTF-8 -jar "{0}" --stdin' + os.linesep + '\t>{1}' + os.linesep).format(xconv_options['xresloader_path'], (os.linesep + '\t>').join(this_thd_cmds)))
+        cprintf_stdout([print_style.FC_GREEN], ('java -Dfile.encoding=UTF-8 {0} -jar "{1}" --stdin' + os.linesep + '\t>{2}' + os.linesep).format(java_options, xconv_options['xresloader_path'], (os.linesep + '\t>').join(this_thd_cmds)))
 
 for i in range(0, options.parallelism):
     this_worker_thd = threading.Thread(target=worker_func, args=[i])
