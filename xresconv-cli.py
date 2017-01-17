@@ -30,7 +30,7 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         sys.setdefaultencoding('utf-8')
 
 xconv_options = {
-    'version': '1.1.0.0',
+    'version': '1.1.0.1',
     'conv_list': None,
     'real_run': True,
     'args': {},
@@ -275,7 +275,7 @@ def load_list_item_nodes(lis):
             if 'name' in local_option.attrib:
                 scheme_key = local_option.attrib['name']
                 if scheme_key and scheme_key in conv_item_obj['scheme_data']:
-                    conv_item_obj['scheme_data'][scheme_key].push(text_value)
+                    conv_item_obj['scheme_data'][scheme_key].append(text_value)
                 else:
                     conv_item_obj['scheme_data'][scheme_key] = [text_value]
         for key in xconv_options['default_scheme']:
