@@ -1,5 +1,11 @@
 更新记录
 ==========
+1.2.0
+------
+1. 同步[xresloader][1]修改版本号规则为3位，和maven内大多数库的结构一致，主版本号.功能版本号.修订版本号
+2. 新增指定数据版本号的支持（需要[xresloader][1] 1.4.0以上版本）
+3. 移除Deprecated的OptionParser，使用新的argparse
+
 1.1.0.1
 ------
 1. 修复批量转表接入的一处调用错误
@@ -28,3 +34,4 @@
 1. 变更help和参数解析方式
 2. 增加并行转表的功能
 
+[1]: https://github.com/xresloader/xresloader

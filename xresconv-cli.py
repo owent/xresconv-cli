@@ -15,7 +15,7 @@ import tempfile
 import threading
 import xml.etree.ElementTree as ET
 from multiprocessing import cpu_count
-from optparse import OptionParser
+from argparse import ArgumentParser
 from subprocess import PIPE, STDOUT, Popen
 
 from print_color import cprintf_stderr, cprintf_stdout, print_style
@@ -30,7 +30,7 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         sys.setdefaultencoding('utf-8')
 
 xconv_options = {
-    'version': '1.1.0.1',
+    'version': '1.2.0',
     'conv_list': None,
     'real_run': True,
     'args': {},
@@ -41,7 +41,8 @@ xconv_options = {
     'item': [],
     'parallelism': int((cpu_count() - 1) / 2) + 1,
     'java_options': [],
-    'default_scheme': {}
+    'default_scheme': {},
+    'data_version': None
 }
 
 # 默认双线程，实际测试过程中java的运行优化反而比多线程更能提升效率
@@ -51,18 +52,17 @@ if xconv_options['parallelism'] > 2:
 xconv_xml_global_nodes = []
 xconv_xml_list_item_nodes = []
 
-usage = "usage: %prog [options...] <convert list file> [xresloader options...]"
-parser = OptionParser(usage)
-parser.disable_interspersed_args()
+usage = '%(prog)s [options...] <convert list file> [-- [xresloader options...]]'
+parser = ArgumentParser(usage=usage)
 
-parser.add_option(
+parser.add_argument(
     "-v",
     "--version",
     action="store_true",
     help="show version and exit",
     dest="version",
     default=False)
-parser.add_option(
+parser.add_argument(
     "-s",
     "--scheme-name",
     action="append",
@@ -70,14 +70,14 @@ parser.add_option(
     metavar="<scheme>",
     dest="rule_schemes",
     default=[])
-parser.add_option(
+parser.add_argument(
     "-t",
     "--test",
     action="store_true",
     help="test run and show cmds",
     dest="test",
     default=False)
-parser.add_option(
+parser.add_argument(
     "-p",
     "--parallelism",
     action="store",
@@ -85,9 +85,9 @@ parser.add_option(
     str(xconv_options['parallelism']) + ')',
     metavar="<number>",
     dest="parallelism",
-    type="int",
+    type=int,
     default=xconv_options['parallelism'])
-parser.add_option(
+parser.add_argument(
     "-j",
     "--java-option",
     action="append",
@@ -95,8 +95,23 @@ parser.add_option(
     metavar="<java option>",
     dest="java_options",
     default=[])
+parser.add_argument(
+    "-a",
+    "--data-version",
+    action="store",
+    help="set data version, if set it's will ignore the data_version option in convert list file",
+    metavar="<version>",
+    dest="data_version",
+    default=None)
 
-(options, left_args) = parser.parse_args()
+parser.add_argument(
+    "convert_list_file",
+    nargs='+',
+    help="convert list file(xml) and options will be passed to xresloader.jar",
+    metavar="<convert list file> [-- [xresloader options...]]",
+    default=[])
+
+options = parser.parse_args()
 
 if options.version:
     print(xconv_options['version'])
@@ -108,11 +123,12 @@ def print_help_msg(err_code):
     exit(err_code)
 
 
-if 0 == len(left_args):
+if 0 == len(options.convert_list_file):
     print_help_msg(-1)
 
-xconv_options['conv_list'] = left_args.pop(0)
-xconv_options['ext_args_l2'] = left_args
+xconv_options['conv_list'] = options.convert_list_file.pop(0)
+xconv_options['ext_args_l2'] = options.convert_list_file
+xconv_options['data_version'] = options.data_version
 
 # ========================================= 全局配置解析 =========================================
 ''' 读取xml文件 '''
@@ -189,6 +205,9 @@ def load_global_options(gns):
 
             elif tag_name == 'data_src_dir':
                 xconv_options['args']['-d'] = '"' + text_value + '"'
+            elif tag_name == 'data_version':
+                if xconv_options['data_version'] is None:
+                    xconv_options['data_version'] = text_value
 
             elif tag_name == 'rename':
                 xconv_options['args']['-n'] = '"' + trip_value + '"'
@@ -297,6 +316,9 @@ if xconv_xml_list_item_nodes and len(xconv_xml_list_item_nodes) > 0:
 # ----------------------------------------- 转换配置解析 -----------------------------------------
 
 # ========================================= 生成转换命令 =========================================
+if not xconv_options['data_version'] is None:
+    xconv_options['args']['-a'] = '"' + str(xconv_options['data_version']) + '"'
+
 ##### 全局命令和配置
 global_cmd_prefix = ''
 for global_optk in xconv_options['args']:
