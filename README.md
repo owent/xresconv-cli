@@ -12,6 +12,8 @@ Gitter on [xresloader](https://github.com/xresloader/xresloader)
 使用说明
 ------
 
+直接使用仓库内源码或者[下载xresconv-cli](https://github.com/xresloader/xresconv-cli/releases)
+
 ```bash
 python xresconv-cli.py [本脚本选项] <转换列表文件> [附加xresloader选项]
 本脚本选项:
