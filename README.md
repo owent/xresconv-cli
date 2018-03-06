@@ -3,7 +3,7 @@ xresconv-cli
 
 这是一个符合 [xresconv-conf](https://github.com/xresloader/xresconv-conf) 规范的CLI转表工具，并且使用 [xresloader](https://github.com/xresloader/xresloader) 作为数据导出工具后端。
 
-依赖python（python2和python3都支持）
+依赖python,支持python2.7和python3（不支持python2.6）。
 
 Gitter on [xresloader](https://github.com/xresloader/xresloader)
 ------
