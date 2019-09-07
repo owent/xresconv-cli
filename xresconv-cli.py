@@ -30,7 +30,7 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         sys.setdefaultencoding('utf-8')
 
 xconv_options = {
-    'version': '1.2.0',
+    'version': '1.3.0',
     'conv_list': None,
     'real_run': True,
     'args': {},
