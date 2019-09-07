@@ -42,7 +42,11 @@ xconv_options = {
     'parallelism': int((cpu_count() - 1) / 2) + 1,
     'java_options': [],
     'default_scheme': {},
-    'data_version': None
+    'data_version': None,
+    'output_matrix': {
+        'file_path': None,
+        'outputs': []
+    }
 }
 
 # 默认双线程，实际测试过程中java的运行优化反而比多线程更能提升效率
@@ -161,11 +165,19 @@ def load_xml_file(file_path):
 
     global_nodes = root_node.findall("./global")
     if global_nodes and len(global_nodes) > 0:
-        xconv_xml_global_nodes.extend(global_nodes)
+        for node in global_nodes:
+            xconv_xml_global_nodes.append({
+                "file_path": file_path,
+                "node": node
+            })
 
     list_item_nodes = root_node.findall("./list/item")
     if list_item_nodes and len(list_item_nodes) > 0:
-        xconv_xml_list_item_nodes.extend(list_item_nodes)
+        for node in list_item_nodes:
+            xconv_xml_list_item_nodes.append({
+                "file_path": file_path,
+                "node": node
+            })
 
 
 load_xml_file(xconv_options['conv_list'])
@@ -174,7 +186,7 @@ load_xml_file(xconv_options['conv_list'])
 # global配置解析/合并
 def load_global_options(gns):
     for global_node in gns:
-        for global_option in global_node:
+        for global_option in global_node['node']:
             tag_name = global_option.tag.lower()
             text_value = global_option.text
             if text_value:
@@ -195,7 +207,19 @@ def load_global_options(gns):
                 xconv_options['args']['-p'] = trip_value
 
             elif tag_name == 'output_type':
-                xconv_options['args']['-t'] = trip_value
+                if global_node['file_path'] != xconv_options['output_matrix']['file_path']:
+                    xconv_options['output_matrix']['outputs'] = []
+                    xconv_options['output_matrix']['file_path'] = global_node['file_path']
+                rename_rule = global_option.get('rename')
+                if rename_rule and rename_rule.strip():
+                    xconv_options['output_matrix']['outputs'].append({
+                        '-t': trip_value, 
+                        '-n': '"' + rename_rule + '"'
+                    })
+                else:
+                    xconv_options['output_matrix']['outputs'].append({
+                        '-t': trip_value
+                    })
 
             elif tag_name == 'proto_file':
                 xconv_options['args']['-f'] = '"' + text_value + '"'
@@ -253,7 +277,8 @@ if not os.path.exists(xconv_options['xresloader_path']):
 # ========================================= 转换表配置解析 =========================================
 # 转换项配置解析/合并
 def load_list_item_nodes(lis):
-    for item in lis:
+    for item_info in lis:
+        item = item_info['node']
         conv_item_obj = {
             'file': False,
             'scheme': False,
@@ -320,38 +345,55 @@ if not xconv_options['data_version'] is None:
     xconv_options['args']['-a'] = '"' + str(xconv_options['data_version']) + '"'
 
 ##### 全局命令和配置
-global_cmd_prefix = ''
-for global_optk in xconv_options['args']:
-    global_optv = xconv_options['args'][global_optk]
-    global_cmd_prefix += ' ' + global_optk + ' ' + global_optv
+global_cmd_args_map = xconv_options['args'].copy()
+global_cmd_args_prefix_array = []
+global_cmd_args_suffix_array = []
 
 if len(xconv_options['ext_args_l1']) > 0:
-    global_cmd_prefix += ' ' + ' '.join(xconv_options['ext_args_l1'])
+    global_cmd_args_prefix_array.extend(xconv_options['ext_args_l1'])
 
 ##### 命令行参数
-global_cmd_suffix = ''
 if len(xconv_options['ext_args_l2']) > 0:
-    global_cmd_suffix += ' ' + ' '.join(xconv_options['ext_args_l2'])
+    global_cmd_args_suffix_array.extend(xconv_options['ext_args_l2'])
 
 cmd_list = []
 for conv_item in xconv_options['item']:
     if not conv_item['enable']:
         continue
 
-    item_cmd_options = ''
-    if len(conv_item['options']) > 0:
-        item_cmd_options += ' ' + ' '.join(conv_item['options'])
+    item_output_matrix = xconv_options['output_matrix']['outputs']
+    if not item_output_matrix:
+        item_output_matrix = [{}]
 
-    if conv_item['file'] and conv_item['scheme']:
-        cmd_scheme_info = ' -s "{:s}" -m "{:s}"'.format(conv_item['file'],
-                                                        conv_item['scheme'])
-    else:
-        cmd_scheme_info = ''
-        for key in conv_item['scheme_data']:
-            for opt_val in conv_item['scheme_data'][key]:
-                cmd_scheme_info += ' -m "{:s}={:s}"'.format(key, opt_val)
-    run_cmd = global_cmd_prefix + item_cmd_options + cmd_scheme_info + global_cmd_suffix
-    cmd_list.append(run_cmd)
+    for item_output in item_output_matrix:
+        item_cmd_args_array = []
+
+        # merge global options
+        item_cmd_args_map = global_cmd_args_map.copy()
+        item_cmd_args_map.update(item_output)
+        for key in item_cmd_args_map:
+            item_cmd_args_array.append(key)
+            item_cmd_args_array.append(item_cmd_args_map[key])
+
+        # add item options
+        item_cmd_args_array.extend(conv_item['options'])
+        if len(conv_item['options']) > 0:
+            item_cmd_args_array.extend(conv_item['options'])
+
+        # add item scheme
+        if conv_item['file'] and conv_item['scheme']:
+            item_cmd_args_array.append('-s')
+            item_cmd_args_array.append('"{:s}"'.format(conv_item['file']))
+            item_cmd_args_array.append('-m')
+            item_cmd_args_array.append('"{:s}"'.format(conv_item['scheme']))
+        else:
+            for key in conv_item['scheme_data']:
+                for opt_val in conv_item['scheme_data'][key]:
+                    item_cmd_args_array.append('-m')
+                    item_cmd_args_array.append('"{:s}={:s}"'.format(key, opt_val))
+        
+        item_cmd_args_array.extend(global_cmd_args_suffix_array)
+        cmd_list.append(item_cmd_args_array)
 
 cmd_list.reverse()
 # ----------------------------------------- 生成转换命令 -----------------------------------------
@@ -361,24 +403,44 @@ all_worker_thread = []
 cmd_picker_lock = threading.Lock()
 
 
+def print_stdout_func(pexec):
+    for output_line in pexec.stdout.readlines():
+        sys.stdout.write(output_line.decode(console_encoding))
+
+def print_stderr_func(pexec):
+    for output_line in pexec.stdout.readlines():
+        sys.stderr.write(output_line.decode(console_encoding))
+
 def worker_func(idx):
     global exit_code
-    java_options = ""
+    java_options = ['java']
     if len(options.java_options) > 0:
-        java_options += ' "-{0}"'.format('" "-'.join(options.java_options))
+        for java_option in options.java_options:
+            java_options.append('-{0}'.format(java_option))
     if len(xconv_options['java_options']) > 0:
-        java_options += ' "{0}"'.format('" "'.join(xconv_options[
-            'java_options']))
+        for java_option in xconv_options['java_options']:
+            java_options.append(java_option)
 
+    java_options.append("-Dfile.encoding={0}".format(console_encoding))
+    java_options.append('-jar')
+    java_options.append(xconv_options['xresloader_path'])
+    java_options.append('--stdin')
+
+    once_pick_count = len(xconv_options['output_matrix']['outputs'])
+    if once_pick_count <= 1:
+        once_pick_count = 1
     pexec = None
     if not options.test:
-        pexec = Popen(
-            'java {0} -jar "{1}" --stdin'.format(
-                java_options, xconv_options['xresloader_path']),
+        pexec = Popen(java_options,
             stdin=PIPE,
-            stdout=None,
-            stderr=None,
-            shell=True)
+            stdout=PIPE,
+            stderr=PIPE,
+            shell=False)
+
+        worker_thd_print_stdout = threading.Thread(target=print_stdout_func, args=[pexec])
+        worker_thd_print_stderr = threading.Thread(target=print_stderr_func, args=[pexec])
+        worker_thd_print_stdout.start()
+        worker_thd_print_stderr.start()
 
         while True:
             cmd_picker_lock.acquire()
@@ -386,13 +448,22 @@ def worker_func(idx):
                 cmd_picker_lock.release()
                 break
 
-            pexec.stdin.write(cmd_list.pop().encode(console_encoding))
-            cmd_picker_lock.release()
-            pexec.stdin.write(os.linesep.encode(console_encoding))
-            pexec.stdin.flush()
+            for _ in range(0, once_pick_count):
+                if not cmd_list:
+                    break
+                pexec.stdin.write(' '.join(cmd_list.pop()).encode(console_encoding))
+                pexec.stdin.write(os.linesep.encode(console_encoding))
 
+            cmd_picker_lock.release()
+            pexec.stdin.flush()
         pexec.stdin.close()
+        for output_line in pexec.stdout.readlines():
+            print(output_line.decode(console_encoding))
         cmd_exit_code = pexec.wait()
+        
+        worker_thd_print_stdout.join()
+        worker_thd_print_stderr.join()
+
         exit_code = exit_code + cmd_exit_code
     else:
         this_thd_cmds = []
@@ -402,18 +473,21 @@ def worker_func(idx):
                 cmd_picker_lock.release()
                 break
 
-            # python2 must use encode string to bytes or there will be messy code
-            # python3 must not use encode methed because it will transform string to bytes
-            if sys.version_info.major < 3:
-                this_thd_cmds.append(cmd_list.pop().encode(console_encoding))
-            else:
-                this_thd_cmds.append(cmd_list.pop())
+            for _ in range(0, once_pick_count):
+                if not cmd_list:
+                    break
+
+                # python2 must use encode string to bytes or there will be messy code
+                # python3 must not use encode methed because it will transform string to bytes
+                if sys.version_info.major < 3:
+                    this_thd_cmds.append(' '.join(cmd_list.pop()).encode(console_encoding))
+                else:
+                    this_thd_cmds.append(' '.join(cmd_list.pop()))
             cmd_picker_lock.release()
 
         cprintf_stdout([print_style.FC_GREEN], (
-            'java {0} -jar "{1}" --stdin' + os.linesep + '\t>{2}' + os.linesep
-        ).format(java_options, xconv_options['xresloader_path'],
-                 (os.linesep + '\t>').join(this_thd_cmds)))
+            '"{0}"' + os.linesep + '\t>{1}' + os.linesep
+        ).format('" "'.join(java_options), (os.linesep + '\t>').join(this_thd_cmds)))
 
 
 for i in range(0, options.parallelism):
