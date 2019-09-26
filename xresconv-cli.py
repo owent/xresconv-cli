@@ -21,6 +21,7 @@ from subprocess import PIPE, STDOUT, Popen
 from print_color import cprintf_stderr, cprintf_stdout, print_style
 
 console_encoding = sys.getfilesystemencoding()
+java_encoding = 'utf-8'
 
 if 'utf-8' != sys.getdefaultencoding().lower():
     try:
@@ -30,7 +31,7 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         sys.setdefaultencoding('utf-8')
 
 xconv_options = {
-    'version': '1.3.0',
+    'version': '1.3.1',
     'conv_list': None,
     'real_run': True,
     'args': {},
@@ -263,9 +264,16 @@ if conv_list_dir:
     os.chdir(conv_list_dir)
 os.chdir(xconv_options['work_dir'])
 
-cprintf_stdout([print_style.FC_YELLOW],
-               '[NOTICE] start to run conv cmds on dir: {0}' + os.linesep,
-               os.getcwd())
+conv_start_msg = ('[NOTICE] start to run conv cmds on dir: {0}' + os.linesep).format(os.getcwd())
+if sys.version_info.major >= 3:
+    cprintf_stdout([print_style.FC_YELLOW], conv_start_msg)
+else:
+    conv_compat_py2_write_buffer = False
+    try:
+        cprintf_stdout([print_style.FC_YELLOW], conv_start_msg.decode(console_encoding))
+    except Exception as _e:
+        conv_compat_py2_write_buffer = True
+        cprintf_stdout([print_style.FC_YELLOW], conv_start_msg)
 
 if not os.path.exists(xconv_options['xresloader_path']):
     cprintf_stderr([print_style.FC_RED],
@@ -402,14 +410,22 @@ exit_code = 0
 all_worker_thread = []
 cmd_picker_lock = threading.Lock()
 
+def print_buffer_to_fd(fd, buffer):
+    if sys.version_info.major >= 3:
+        fd.write(buffer.decode(java_encoding))
+    else:
+        if console_encoding == java_encoding or conv_compat_py2_write_buffer:
+            sys.stderr.write(buffer)
+        else:
+            sys.stderr.write(buffer.decode(java_encoding))
 
 def print_stdout_func(pexec):
     for output_line in pexec.stdout.readlines():
-        sys.stdout.write(output_line.decode(console_encoding))
+        print_buffer_to_fd(sys.stdout, output_line)
 
 def print_stderr_func(pexec):
     for output_line in pexec.stdout.readlines():
-        sys.stderr.write(output_line.decode(console_encoding))
+        print_buffer_to_fd(sys.stderr, output_line)
 
 def worker_func(idx):
     global exit_code
@@ -421,7 +437,7 @@ def worker_func(idx):
         for java_option in xconv_options['java_options']:
             java_options.append(java_option)
 
-    java_options.append("-Dfile.encoding={0}".format(console_encoding))
+    java_options.append("-Dfile.encoding={0}".format(java_encoding))
     java_options.append('-jar')
     java_options.append(xconv_options['xresloader_path'])
     java_options.append('--stdin')
@@ -451,14 +467,14 @@ def worker_func(idx):
             for _ in range(0, once_pick_count):
                 if not cmd_list:
                     break
-                pexec.stdin.write(' '.join(cmd_list.pop()).encode(console_encoding))
-                pexec.stdin.write(os.linesep.encode(console_encoding))
+                pexec.stdin.write(' '.join(cmd_list.pop()).encode(java_encoding))
+                pexec.stdin.write(os.linesep.encode(java_encoding))
 
             cmd_picker_lock.release()
             pexec.stdin.flush()
         pexec.stdin.close()
         for output_line in pexec.stdout.readlines():
-            print(output_line.decode(console_encoding))
+            print(output_line.decode(java_encoding))
         cmd_exit_code = pexec.wait()
         
         worker_thd_print_stdout.join()
@@ -479,7 +495,7 @@ def worker_func(idx):
 
                 # python2 must use encode string to bytes or there will be messy code
                 # python3 must not use encode methed because it will transform string to bytes
-                if sys.version_info.major < 3:
+                if sys.version_info.major < 3 and not conv_compat_py2_write_buffer:
                     this_thd_cmds.append(' '.join(cmd_list.pop()).encode(console_encoding))
                 else:
                     this_thd_cmds.append(' '.join(cmd_list.pop()))
