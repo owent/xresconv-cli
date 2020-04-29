@@ -5,10 +5,6 @@ xresconv-cli
 
 依赖python,支持python2.7和python3（不支持python2.6）。
 
-Gitter on [xresloader](https://github.com/xresloader/xresloader)
-------
-[![Gitter](https://badges.gitter.im/xresloader/xresloader.svg)](https://gitter.im/xresloader/xresloader?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-
 使用说明
 ------
 
