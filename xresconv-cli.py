@@ -277,7 +277,7 @@ else:
 
 if not os.path.exists(xconv_options['xresloader_path']):
     cprintf_stderr([print_style.FC_RED],
-                   '[ERROR] xresloader not found.({0})' + os.linesep,
+                   '[ERROR] xresloader not found.({0}, you can download it from https://github.com/xresloader/xresloader/releases)' + os.linesep,
                    xconv_options['xresloader_path'])
     exit(-4)
 
