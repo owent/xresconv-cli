@@ -30,6 +30,8 @@ if 'utf-8' != sys.getdefaultencoding().lower():
         reload(sys)
         sys.setdefaultencoding('utf-8')
 
+xconv_split_by_spaces = re.compile('\\s+', re.IGNORECASE)
+
 xconv_options = {
     'version': '1.3.1',
     'conv_list': None,
@@ -134,7 +136,6 @@ if 0 == len(options.convert_list_file):
 xconv_options['conv_list'] = options.convert_list_file.pop(0)
 xconv_options['ext_args_l2'] = options.convert_list_file
 xconv_options['data_version'] = options.data_version
-
 # ========================================= 全局配置解析 =========================================
 ''' 读取xml文件 '''
 
@@ -211,16 +212,23 @@ def load_global_options(gns):
                 if global_node['file_path'] != xconv_options['output_matrix']['file_path']:
                     xconv_options['output_matrix']['outputs'] = []
                     xconv_options['output_matrix']['file_path'] = global_node['file_path']
+                output_rule = {
+                    'type': trip_value, 
+                    'rename': None,
+                    'tags': set(),
+                    'classes': set()
+                }
                 rename_rule = global_option.get('rename')
                 if rename_rule and rename_rule.strip():
-                    xconv_options['output_matrix']['outputs'].append({
-                        '-t': trip_value, 
-                        '-n': '"' + rename_rule + '"'
-                    })
-                else:
-                    xconv_options['output_matrix']['outputs'].append({
-                        '-t': trip_value
-                    })
+                    output_rule['rename'] = rename_rule
+                tag_rule = global_option.get('tag')
+                if tag_rule and tag_rule.strip():
+                    output_rule['tags'] = set(filter(lambda x: x, xconv_split_by_spaces.split(tag_rule.strip())))
+                class_rule = global_option.get('class')
+                if class_rule and class_rule.strip():
+                    output_rule['classes'] = set(filter(lambda x: x, xconv_split_by_spaces.split(class_rule.strip())))
+                    
+                xconv_options['output_matrix']['outputs'].append(output_rule)
 
             elif tag_name == 'proto_file':
                 xconv_options['args']['-f'] = '"' + text_value + '"'
@@ -292,13 +300,19 @@ def load_list_item_nodes(lis):
             'scheme': False,
             'options': [],
             'enable': False,
-            'scheme_data': {}
+            'scheme_data': {},
+            'tags': set(),
+            'classes': set()
         }
 
         if 'file' in item.attrib:
             conv_item_obj['file'] = item.attrib['file']
         if 'scheme' in item.attrib:
             conv_item_obj['scheme'] = item.attrib['scheme']
+        if 'tag' in item.attrib:
+            conv_item_obj['tags'] = set(filter(lambda x: x, xconv_split_by_spaces.split(item.attrib['tag'])))
+        if 'class' in item.attrib:
+            conv_item_obj['classes'] = set(filter(lambda x: x, xconv_split_by_spaces.split(item.attrib['class'])))
 
         # 局部选项
         for local_option in item.findall('./option'):
@@ -378,7 +392,27 @@ for conv_item in xconv_options['item']:
 
         # merge global options
         item_cmd_args_map = global_cmd_args_map.copy()
-        item_cmd_args_map.update(item_output)
+        if 'type' in item_output and item_output['type']:
+            item_cmd_args_map['-t'] = item_output['type']
+        if 'rename' in item_output and item_output['rename']:
+            item_cmd_args_map['-n'] = '"{0}"'.format(item_output['rename'])
+        if 'tags' in item_output and item_output['tags']:
+            check_limit = False
+            for tag in item_output['tags']:
+                if tag in conv_item['tags']:
+                    check_limit = True
+                    break
+            if not check_limit:
+                continue
+        if 'classes' in item_output and item_output['classes']:
+            check_limit = False
+            for tag in item_output['classes']:
+                if tag in conv_item['classes']:
+                    check_limit = True
+                    break
+            if not check_limit:
+                continue
+
         for key in item_cmd_args_map:
             item_cmd_args_array.append(key)
             item_cmd_args_array.append(item_cmd_args_map[key])
