@@ -458,7 +458,7 @@ def print_stdout_func(pexec):
         print_buffer_to_fd(sys.stdout, output_line)
 
 def print_stderr_func(pexec):
-    for output_line in pexec.stdout.readlines():
+    for output_line in pexec.stderr.readlines():
         print_buffer_to_fd(sys.stderr, output_line)
 
 def worker_func(idx):
