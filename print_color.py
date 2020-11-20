@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import os, ctypes, platform
+import os
+import ctypes
+import platform
 import cgi
 
 console_encoding = sys.getfilesystemencoding()
+
 
 class print_style:
     version = '1.0.2.0'
@@ -39,6 +42,7 @@ class print_style:
         for color codes
 '''
 
+
 class Win32ConsoleColor:
     name = 'windows console'
     STD_INPUT_HANDLE        = -10
@@ -46,15 +50,15 @@ class Win32ConsoleColor:
     STD_ERROR_HANDLE        = -12
 
     FOREGROUND_BLACK        = 0x0
-    FOREGROUND_BLUE         = 0x01 # text color contains blue.
-    FOREGROUND_GREEN        = 0x02 # text color contains green.
-    FOREGROUND_RED          = 0x04 # text color contains red.
-    FOREGROUND_INTENSITY    = 0x08 # text color is intensified.
+    FOREGROUND_BLUE         = 0x01  # text color contains blue.
+    FOREGROUND_GREEN        = 0x02  # text color contains green.
+    FOREGROUND_RED          = 0x04  # text color contains red.
+    FOREGROUND_INTENSITY    = 0x08  # text color is intensified.
 
-    BACKGROUND_BLUE         = 0x10 # background color contains blue.
-    BACKGROUND_GREEN        = 0x20 # background color contains green.
-    BACKGROUND_RED          = 0x40 # background color contains red.
-    BACKGROUND_INTENSITY    = 0x80 # background color is intensified.
+    BACKGROUND_BLUE         = 0x10  # background color contains blue.
+    BACKGROUND_GREEN        = 0x20  # background color contains green.
+    BACKGROUND_RED          = 0x40  # background color contains red.
+    BACKGROUND_INTENSITY    = 0x80  # background color is intensified.
 
     COLOR_MAP = {
         print_style.FC_BLACK: FOREGROUND_BLACK,
@@ -115,6 +119,7 @@ class Win32ConsoleColor:
             sys.stderr.write(text)
             self.set_cmd_color(old_style, self.std_err_handle)
 
+
 class TermColor:
     name = 'terminal'
     COLOR_MAP = {
@@ -158,6 +163,7 @@ class TermColor:
             sys.stderr.write('\033[' + ';'.join(style) + 'm' + text + '\033[0m')
         else:
             sys.stderr.write(text)
+
 
 class HtmlColor:
     name = 'html css'
@@ -208,6 +214,7 @@ class HtmlColor:
             sys.stderr.write('<span style="' + ' '.join(style) + '">' + cgi.escape(text) + '</span>')
         else:
             sys.stderr.write(cgi.escape(text))
+
 
 class NoneColor:
     name = 'none'
@@ -263,12 +270,14 @@ def cprintf_set_mode(mode_name='auto'):
     else:
         print_style.engine = NoneColor
 
+
 def cprintf_set_theme(theme_name=None):
     if theme_name is None:
         if not os.getenv('CPRINTF_THEME') is None:
             cprintf_set_theme(os.getenv('CPRINTF_THEME'))
     else:
         print_style.theme = theme_name
+
 
 def cprintf_unpack_text(fmt, text):
     if len(text) > 0:
@@ -281,10 +290,12 @@ def cprintf_unpack_text(fmt, text):
     else:
         return fmt
 
+
 def cprintf_stdout(options, fmt, *text):
     cp = print_style.engine()
     cp.stdout_with_color(options, cprintf_unpack_text(fmt, text))
     sys.stdout.flush()
+
 
 def cprintf_stderr(options, fmt, *text):
     cp = print_style.engine()

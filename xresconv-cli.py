@@ -366,7 +366,7 @@ if xconv_xml_list_item_nodes and len(xconv_xml_list_item_nodes) > 0:
 if not xconv_options['data_version'] is None:
     xconv_options['args']['-a'] = '"' + str(xconv_options['data_version']) + '"'
 
-##### 全局命令和配置
+# ++++++++++++++++++++++++++++++++++++++++++ 全局命令和配置 ++++++++++++++++++++++++++++++++++++++++++
 global_cmd_args_map = xconv_options['args'].copy()
 global_cmd_args_prefix_array = []
 global_cmd_args_suffix_array = []
@@ -374,7 +374,7 @@ global_cmd_args_suffix_array = []
 if len(xconv_options['ext_args_l1']) > 0:
     global_cmd_args_prefix_array.extend(xconv_options['ext_args_l1'])
 
-##### 命令行参数
+# ++++++++++++++++++++++++++++++++++++++++++ 命令行参数 ++++++++++++++++++++++++++++++++++++++++++
 if len(xconv_options['ext_args_l2']) > 0:
     global_cmd_args_suffix_array.extend(xconv_options['ext_args_l2'])
 
@@ -444,6 +444,7 @@ exit_code = 0
 all_worker_thread = []
 cmd_picker_lock = threading.Lock()
 
+
 def print_buffer_to_fd(fd, buffer):
     if sys.version_info.major >= 3:
         fd.write(buffer.decode(java_encoding))
@@ -453,13 +454,16 @@ def print_buffer_to_fd(fd, buffer):
         else:
             sys.stderr.write(buffer.decode(java_encoding))
 
+
 def print_stdout_func(pexec):
     for output_line in pexec.stdout.readlines():
         print_buffer_to_fd(sys.stdout, output_line)
 
+
 def print_stderr_func(pexec):
     for output_line in pexec.stderr.readlines():
         print_buffer_to_fd(sys.stderr, output_line)
+
 
 def worker_func(idx):
     global exit_code
