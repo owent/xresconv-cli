@@ -298,6 +298,9 @@ def cprintf_unpack_text(fmt, text):
         except TypeError:
             ret = fmt.decode("utf-8").encode(console_encoding).format(*text)
             return ret
+        except EnvironmentError:
+            ret = fmt.decode("utf-8").encode(console_encoding).format(*text)
+            return ret
     else:
         return fmt
 

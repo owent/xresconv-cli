@@ -145,6 +145,11 @@ def main():
             xml_doc = ET.parse(file_path)
         except ET.ParseError as ex:
             print(ex)
+            cprintf_stderr([print_style.FC_RED], "[ERROR]: {0}" + os.linesep, ex)
+            exit(-2)
+        except EnvironmentError as ex:
+            print(ex)
+            cprintf_stderr([print_style.FC_RED], "[ERROR]: {0}" + os.linesep, ex)
             exit(-2)
 
         root_node = xml_doc.getroot()
@@ -291,13 +296,17 @@ def main():
         except TypeError:
             conv_compat_py2_write_buffer = True
             cprintf_stdout([print_style.FC_YELLOW], conv_start_msg)
+        except EnvironmentError:
+            conv_compat_py2_write_buffer = True
+            cprintf_stdout([print_style.FC_YELLOW], conv_start_msg)
 
     if not os.path.exists(xconv_options["xresloader_path"]):
         cprintf_stderr(
             [print_style.FC_RED],
-            "[ERROR] xresloader not found.({0}, you can download it from https://github.com/xresloader/xresloader/releases)"
+            "[ERROR] xresloader not found.({0}, you can download it from {1})"
             + os.linesep,
             xconv_options["xresloader_path"],
+            "https://github.com/xresloader/xresloader/releases",
         )
         exit(-4)
 
