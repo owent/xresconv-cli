@@ -4,6 +4,7 @@
 import os
 import re
 import sys
+import platform
 
 # ==================================================================================
 import threading
@@ -42,6 +43,7 @@ def main():
         "item": [],
         "parallelism": int((cpu_count() - 1) / 2) + 1,
         "java_options": [],
+        "java_path": "java",
         "default_scheme": {},
         "data_version": None,
         "output_matrix": {"file_path": None, "outputs": []},
@@ -104,6 +106,15 @@ def main():
         default=[],
     )
     parser.add_argument(
+        "-J",
+        "--java-path",
+        action="store",
+        help="set path to java",
+        metavar="<java path>",
+        dest="java_path",
+        default=[],
+    )
+    parser.add_argument(
         "-a",
         "--data-version",
         action="store",
@@ -137,6 +148,16 @@ def main():
     xconv_options["conv_list"] = options.convert_list_file.pop(0)
     xconv_options["ext_args_l2"] = options.convert_list_file
     xconv_options["data_version"] = options.data_version
+    if options.java_path and os.path.exists(options.java_path):
+        xconv_options["java_path"] = options.java_path
+    else:
+        java_home=os.getenv("JAVA_HOME")
+        if "windows" == platform.system().lower():
+            java_exec = 'java.exe'
+        else:
+            java_exec = 'java'
+        if java_home and os.path.exists(os.path.join(java_home, 'bin', java_exec)):
+            xconv_options["java_path"] = os.path.join(java_home, 'bin', java_exec)
     # ========================================= 全局配置解析 =========================================
     """ 读取xml文件 """
 
@@ -490,7 +511,7 @@ def main():
 
     def worker_func(idx):
         global exit_code
-        java_options = ["java"]
+        java_options = [xconv_options["java_path"]]
         if len(options.java_options) > 0:
             for java_option in options.java_options:
                 java_options.append("-{0}".format(java_option))
