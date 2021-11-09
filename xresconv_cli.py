@@ -31,7 +31,7 @@ def main():
     xconv_split_by_spaces = re.compile("\\s+", re.IGNORECASE)
 
     xconv_options = {
-        "version": "1.3.1",
+        "version": "1.4.0",
         "conv_list": None,
         "real_run": True,
         "args": {},
