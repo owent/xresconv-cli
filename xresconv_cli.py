@@ -15,9 +15,6 @@ from subprocess import PIPE, Popen
 
 from print_color import cprintf_stderr, cprintf_stdout, print_style
 
-exit_code = 0
-
-
 def main():
     console_encoding = sys.getfilesystemencoding()
     java_encoding = "utf-8"
@@ -490,6 +487,7 @@ def main():
     # ----------------------------------------- 生成转换命令 -----------------------------------------
 
     all_worker_thread = []
+    exit_code = 0
     cmd_picker_lock = threading.Lock()
 
     def print_buffer_to_fd(fd, buffer):
@@ -510,7 +508,6 @@ def main():
             print_buffer_to_fd(sys.stderr, output_line)
 
     def worker_func(idx):
-        global exit_code
         java_options = [xconv_options["java_path"]]
         if len(options.java_options) > 0:
             for java_option in options.java_options:
@@ -609,8 +606,7 @@ def main():
         [print_style.FC_MAGENTA],
         "[INFO] all jobs done. {0} job(s) failed.{1}".format(exit_code, os.linesep),
     )
-
+    return exit_code
 
 if __name__ == "__main__":
-    main()
-    exit(exit_code)
+    exit(main())

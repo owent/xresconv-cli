@@ -9,4 +9,4 @@ if __name__ == "__main__":
     sys.path.append(script_dir)
     from xresconv_cli import main
 
-    main()
+    exit(main())
