@@ -487,7 +487,9 @@ def main():
     # ----------------------------------------- 生成转换命令 -----------------------------------------
 
     all_worker_thread = []
-    exit_code = 0
+    exit_data = {
+        "exit_code": 0,
+    }
     cmd_picker_lock = threading.Lock()
 
     def print_buffer_to_fd(fd, buffer):
@@ -507,7 +509,7 @@ def main():
         for output_line in pexec.stderr.readlines():
             print_buffer_to_fd(sys.stderr, output_line)
 
-    def worker_func(idx):
+    def worker_func(idx, exit_data):
         java_options = [xconv_options["java_path"]]
         if len(options.java_options) > 0:
             for java_option in options.java_options:
@@ -561,7 +563,7 @@ def main():
             worker_thd_print_stdout.join()
             worker_thd_print_stderr.join()
 
-            exit_code = exit_code + cmd_exit_code
+            exit_data["exit_code"] = exit_data["exit_code"] + cmd_exit_code
         else:
             this_thd_cmds = []
             while True:
@@ -592,7 +594,7 @@ def main():
             )
 
     for i in range(0, options.parallelism):
-        this_worker_thd = threading.Thread(target=worker_func, args=[i])
+        this_worker_thd = threading.Thread(target=worker_func, args=[i, exit_data])
         this_worker_thd.start()
         all_worker_thread.append(this_worker_thd)
 
@@ -604,9 +606,9 @@ def main():
 
     cprintf_stdout(
         [print_style.FC_MAGENTA],
-        "[INFO] all jobs done. {0} job(s) failed.{1}".format(exit_code, os.linesep),
+        "[INFO] all jobs done. {0} job(s) failed.{1}".format(exit_data["exit_code"], os.linesep),
     )
-    return exit_code
+    return exit_data["exit_code"]
 
 if __name__ == "__main__":
     exit(main())
