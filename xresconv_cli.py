@@ -437,11 +437,6 @@ def main():
             item_cmd_args_array = []
 
             # merge global options
-            item_cmd_args_map = global_cmd_args_map.copy()
-            if "type" in item_output and item_output["type"]:
-                item_cmd_args_map["-t"] = item_output["type"]
-            if "rename" in item_output and item_output["rename"]:
-                item_cmd_args_map["-n"] = '"{0}"'.format(item_output["rename"])
             if "tags" in item_output and item_output["tags"]:
                 check_limit = False
                 for tag in item_output["tags"]:
@@ -459,13 +454,18 @@ def main():
                 if not check_limit:
                     continue
 
+            item_cmd_args_map = global_cmd_args_map.copy()
+            if "type" in item_output and item_output["type"]:
+                item_cmd_args_map["-t"] = item_output["type"]
+            if "rename" in item_output and item_output["rename"]:
+                item_cmd_args_map["-n"] = '"{0}"'.format(item_output["rename"])
+
             for key in item_cmd_args_map:
                 item_cmd_args_array.append(key)
                 item_cmd_args_array.append(item_cmd_args_map[key])
 
             # add item options
-            item_cmd_args_array.extend(conv_item["options"])
-            if len(conv_item["options"]) > 0:
+            if conv_item["options"]:
                 item_cmd_args_array.extend(conv_item["options"])
 
             # add item scheme
