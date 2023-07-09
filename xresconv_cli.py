@@ -44,6 +44,7 @@ def main():
         "default_scheme": {},
         "data_version": None,
         "output_matrix": {"file_path": None, "outputs": []},
+        "protocol_files": {"file_path": None, "inputs": []},
     }
 
     # 默认双线程，实际测试过程中java的运行优化反而比多线程更能提升效率
@@ -260,7 +261,16 @@ def main():
                     xconv_options["output_matrix"]["outputs"].append(output_rule)
 
                 elif tag_name == "proto_file":
-                    xconv_options["args"]["-f"] = '"' + text_value + '"'
+                    if (
+                        global_node["file_path"]
+                        != xconv_options["protocol_files"]["file_path"]
+                    ):
+                        xconv_options["protocol_files"]["inputs"] = []
+                        xconv_options["protocol_files"]["file_path"] = global_node[
+                            "file_path"
+                        ]
+                    xconv_options["protocol_files"]["inputs"].append("-f")
+                    xconv_options["protocol_files"]["inputs"].append('"' + text_value + '"')
 
                 elif tag_name == "output_dir":
                     xconv_options["args"]["-o"] = '"' + text_value + '"'
@@ -435,6 +445,8 @@ def main():
 
         for item_output in item_output_matrix:
             item_cmd_args_array = []
+            item_cmd_args_array.extend(global_cmd_args_prefix_array)
+            item_cmd_args_array.extend(xconv_options["protocol_files"]["inputs"])
 
             # merge global options
             if "tags" in item_output and item_output["tags"]:
@@ -588,11 +600,12 @@ def main():
 
             cprintf_stdout(
                 [print_style.FC_GREEN],
-                ('"{0}"' + os.linesep + "\t>{1}" + os.linesep).format(
-                    '" "'.join(java_options), (os.linesep + "\t>").join(this_thd_cmds)
+                ('"{0}"' + os.linesep + "\t> {1}" + os.linesep).format(
+                    '" "'.join(java_options), (os.linesep + "\t> ").join(this_thd_cmds)
                 ),
             )
 
+    # ----------------------------------------- 实际开始转换 -----------------------------------------
     for i in range(0, options.parallelism):
         this_worker_thd = threading.Thread(target=worker_func, args=[i, exit_data])
         this_worker_thd.start()
@@ -601,8 +614,6 @@ def main():
     # 等待退出
     for thd in all_worker_thread:
         thd.join()
-
-    # ----------------------------------------- 实际开始转换 -----------------------------------------
 
     cprintf_stdout(
         [print_style.FC_MAGENTA],
