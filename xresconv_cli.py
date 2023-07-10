@@ -45,6 +45,7 @@ def main():
         "data_version": None,
         "output_matrix": {"file_path": None, "outputs": []},
         "protocol_files": {"file_path": None, "inputs": []},
+        "data_source_dir": {"file_path": None, "inputs": []},
     }
 
     # 默认双线程，实际测试过程中java的运行优化反而比多线程更能提升效率
@@ -275,8 +276,17 @@ def main():
                 elif tag_name == "output_dir":
                     xconv_options["args"]["-o"] = '"' + text_value + '"'
 
-                elif tag_name == "data_src_dir":
-                    xconv_options["args"]["-d"] = '"' + text_value + '"'
+                elif tag_name == "data_src_dir" or tag_name == "data_source_dir":
+                    if (
+                        global_node["file_path"]
+                        != xconv_options["data_source_dir"]["file_path"]
+                    ):
+                        xconv_options["data_source_dir"]["inputs"] = []
+                        xconv_options["data_source_dir"]["file_path"] = global_node[
+                            "file_path"
+                        ]
+                    xconv_options["data_source_dir"]["inputs"].append("-d")
+                    xconv_options["data_source_dir"]["inputs"].append('"' + text_value + '"')
                 elif tag_name == "data_version":
                     if xconv_options["data_version"] is None:
                         xconv_options["data_version"] = text_value
@@ -447,6 +457,7 @@ def main():
             item_cmd_args_array = []
             item_cmd_args_array.extend(global_cmd_args_prefix_array)
             item_cmd_args_array.extend(xconv_options["protocol_files"]["inputs"])
+            item_cmd_args_array.extend(xconv_options["data_source_dir"]["inputs"])
 
             # merge global options
             if "tags" in item_output and item_output["tags"]:
