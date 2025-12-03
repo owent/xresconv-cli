@@ -15,11 +15,13 @@ from subprocess import PIPE, Popen
 
 from print_color import cprintf_stderr, cprintf_stdout, print_style
 
+
 def main():
     console_encoding = sys.getfilesystemencoding()
     java_encoding = "utf-8"
 
-    if 2 == sys.version_info[0] and "utf-8" != sys.getdefaultencoding().lower():
+    if 2 == sys.version_info[0] and "utf-8" != sys.getdefaultencoding().lower(
+    ):
         try:
             sys.setdefaultencoding("utf-8")
         except LookupError:
@@ -29,7 +31,7 @@ def main():
     xconv_split_by_spaces = re.compile("\\s+", re.IGNORECASE)
 
     xconv_options = {
-        "version": "1.4.0",
+        "version": "1.4.3",
         "conv_list": None,
         "real_run": True,
         "args": {},
@@ -43,9 +45,18 @@ def main():
         "java_path": "java",
         "default_scheme": {},
         "data_version": None,
-        "output_matrix": {"file_path": None, "outputs": []},
-        "protocol_files": {"file_path": None, "inputs": []},
-        "data_source_dir": {"file_path": None, "inputs": []},
+        "output_matrix": {
+            "file_path": None,
+            "outputs": []
+        },
+        "protocol_files": {
+            "file_path": None,
+            "inputs": []
+        },
+        "data_source_dir": {
+            "file_path": None,
+            "inputs": []
+        },
     }
 
     # 默认双线程，实际测试过程中java的运行优化反而比多线程更能提升效率
@@ -87,9 +98,8 @@ def main():
         "-p",
         "--parallelism",
         action="store",
-        help="set parallelism task number(default:"
-        + str(xconv_options["parallelism"])
-        + ")",
+        help="set parallelism task number(default:" +
+        str(xconv_options["parallelism"]) + ")",
         metavar="<number>",
         dest="parallelism",
         type=int,
@@ -117,7 +127,8 @@ def main():
         "-a",
         "--data-version",
         action="store",
-        help="set data version, if set it's will ignore the data_version option in convert list file",
+        help=
+        "set data version, if set it's will ignore the data_version option in convert list file",
         metavar="<version>",
         dest="data_version",
         default=None,
@@ -126,7 +137,8 @@ def main():
     parser.add_argument(
         "convert_list_file",
         nargs="+",
-        help="convert list file(xml) and options will be passed to xresloader.jar",
+        help=
+        "convert list file(xml) and options will be passed to xresloader.jar",
         metavar="<convert list file> [-- [xresloader options...]]",
         default=[],
     )
@@ -150,13 +162,15 @@ def main():
     if options.java_path and os.path.exists(options.java_path):
         xconv_options["java_path"] = options.java_path
     else:
-        java_home=os.getenv("JAVA_HOME")
+        java_home = os.getenv("JAVA_HOME")
         if "windows" == platform.system().lower():
             java_exec = 'java.exe'
         else:
             java_exec = 'java'
-        if java_home and os.path.exists(os.path.join(java_home, 'bin', java_exec)):
-            xconv_options["java_path"] = os.path.join(java_home, 'bin', java_exec)
+        if java_home and os.path.exists(
+                os.path.join(java_home, 'bin', java_exec)):
+            xconv_options["java_path"] = os.path.join(java_home, 'bin',
+                                                      java_exec)
     # ========================================= 全局配置解析 =========================================
     """ 读取xml文件 """
 
@@ -165,11 +179,13 @@ def main():
             xml_doc = ET.parse(file_path)
         except ET.ParseError as ex:
             print(ex)
-            cprintf_stderr([print_style.FC_RED], "[ERROR]: {0}" + os.linesep, ex)
+            cprintf_stderr([print_style.FC_RED], "[ERROR]: {0}" + os.linesep,
+                           ex)
             exit(-2)
         except EnvironmentError as ex:
             print(ex)
-            cprintf_stderr([print_style.FC_RED], "[ERROR]: {0}" + os.linesep, ex)
+            cprintf_stderr([print_style.FC_RED], "[ERROR]: {0}" + os.linesep,
+                           ex)
             exit(-2)
 
         root_node = xml_doc.getroot()
@@ -185,19 +201,27 @@ def main():
             for include_node in include_nodes:
                 include_file_path = include_node.text
                 if include_file_path and len(include_file_path) > 1:
-                    if include_file_path[0] != "/" and include_file_path[1] != ":":
-                        include_file_path = os.path.join(dir_prefix, include_file_path)
+                    if include_file_path[0] != "/" and include_file_path[
+                            1] != ":":
+                        include_file_path = os.path.join(
+                            dir_prefix, include_file_path)
                     load_xml_file(include_file_path)
 
         global_nodes = root_node.findall("./global")
         if global_nodes and len(global_nodes) > 0:
             for node in global_nodes:
-                xconv_xml_global_nodes.append({"file_path": file_path, "node": node})
+                xconv_xml_global_nodes.append({
+                    "file_path": file_path,
+                    "node": node
+                })
 
         list_item_nodes = root_node.findall("./list/item")
         if list_item_nodes and len(list_item_nodes) > 0:
             for node in list_item_nodes:
-                xconv_xml_list_item_nodes.append({"file_path": file_path, "node": node})
+                xconv_xml_list_item_nodes.append({
+                    "file_path": file_path,
+                    "node": node
+                })
 
     load_xml_file(xconv_options["conv_list"])
 
@@ -225,14 +249,11 @@ def main():
                     xconv_options["args"]["-p"] = trip_value
 
                 elif tag_name == "output_type":
-                    if (
-                        global_node["file_path"]
-                        != xconv_options["output_matrix"]["file_path"]
-                    ):
+                    if (global_node["file_path"]
+                            != xconv_options["output_matrix"]["file_path"]):
                         xconv_options["output_matrix"]["outputs"] = []
-                        xconv_options["output_matrix"]["file_path"] = global_node[
-                            "file_path"
-                        ]
+                        xconv_options["output_matrix"][
+                            "file_path"] = global_node["file_path"]
                     output_rule = {
                         "type": trip_value,
                         "rename": None,
@@ -248,45 +269,41 @@ def main():
                             filter(
                                 lambda x: x,
                                 xconv_split_by_spaces.split(tag_rule.strip()),
-                            )
-                        )
+                            ))
                     class_rule = global_option.get("class")
                     if class_rule and class_rule.strip():
                         output_rule["classes"] = set(
                             filter(
                                 lambda x: x,
-                                xconv_split_by_spaces.split(class_rule.strip()),
-                            )
-                        )
+                                xconv_split_by_spaces.split(
+                                    class_rule.strip()),
+                            ))
 
-                    xconv_options["output_matrix"]["outputs"].append(output_rule)
+                    xconv_options["output_matrix"]["outputs"].append(
+                        output_rule)
 
                 elif tag_name == "proto_file":
-                    if (
-                        global_node["file_path"]
-                        != xconv_options["protocol_files"]["file_path"]
-                    ):
+                    if (global_node["file_path"]
+                            != xconv_options["protocol_files"]["file_path"]):
                         xconv_options["protocol_files"]["inputs"] = []
-                        xconv_options["protocol_files"]["file_path"] = global_node[
-                            "file_path"
-                        ]
+                        xconv_options["protocol_files"][
+                            "file_path"] = global_node["file_path"]
                     xconv_options["protocol_files"]["inputs"].append("-f")
-                    xconv_options["protocol_files"]["inputs"].append('"' + text_value + '"')
+                    xconv_options["protocol_files"]["inputs"].append(
+                        '"' + text_value + '"')
 
                 elif tag_name == "output_dir":
                     xconv_options["args"]["-o"] = '"' + text_value + '"'
 
                 elif tag_name == "data_src_dir" or tag_name == "data_source_dir":
-                    if (
-                        global_node["file_path"]
-                        != xconv_options["data_source_dir"]["file_path"]
-                    ):
+                    if (global_node["file_path"]
+                            != xconv_options["data_source_dir"]["file_path"]):
                         xconv_options["data_source_dir"]["inputs"] = []
-                        xconv_options["data_source_dir"]["file_path"] = global_node[
-                            "file_path"
-                        ]
+                        xconv_options["data_source_dir"][
+                            "file_path"] = global_node["file_path"]
                     xconv_options["data_source_dir"]["inputs"].append("-d")
-                    xconv_options["data_source_dir"]["inputs"].append('"' + text_value + '"')
+                    xconv_options["data_source_dir"]["inputs"].append(
+                        '"' + text_value + '"')
                 elif tag_name == "data_version":
                     if xconv_options["data_version"] is None:
                         xconv_options["data_version"] = text_value
@@ -303,10 +320,11 @@ def main():
                         scheme_key = global_option.attrib["name"]
                         if scheme_key in xconv_options["default_scheme"]:
                             xconv_options["default_scheme"][scheme_key].append(
-                                trip_value
-                            )
+                                trip_value)
                         else:
-                            xconv_options["default_scheme"][scheme_key] = [text_value]
+                            xconv_options["default_scheme"][scheme_key] = [
+                                text_value
+                            ]
                 else:
                     print("[ERROR] unknown global configure " + tag_name)
 
@@ -320,17 +338,15 @@ def main():
         os.chdir(conv_list_dir)
     os.chdir(xconv_options["work_dir"])
 
-    conv_start_msg = (
-        "[NOTICE] start to run conv cmds on dir: {0}" + os.linesep
-    ).format(os.getcwd())
+    conv_start_msg = ("[NOTICE] start to run conv cmds on dir: {0}" +
+                      os.linesep).format(os.getcwd())
     if sys.version_info.major >= 3:
         cprintf_stdout([print_style.FC_YELLOW], conv_start_msg)
     else:
         conv_compat_py2_write_buffer = False
         try:
-            cprintf_stdout(
-                [print_style.FC_YELLOW], conv_start_msg.decode(console_encoding)
-            )
+            cprintf_stdout([print_style.FC_YELLOW],
+                           conv_start_msg.decode(console_encoding))
         except TypeError:
             conv_compat_py2_write_buffer = True
             cprintf_stdout([print_style.FC_YELLOW], conv_start_msg)
@@ -369,14 +385,12 @@ def main():
                 conv_item_obj["scheme"] = item.attrib["scheme"]
             if "tag" in item.attrib:
                 conv_item_obj["tags"] = set(
-                    filter(lambda x: x, xconv_split_by_spaces.split(item.attrib["tag"]))
-                )
+                    filter(lambda x: x,
+                           xconv_split_by_spaces.split(item.attrib["tag"])))
             if "class" in item.attrib:
                 conv_item_obj["classes"] = set(
-                    filter(
-                        lambda x: x, xconv_split_by_spaces.split(item.attrib["class"])
-                    )
-                )
+                    filter(lambda x: x,
+                           xconv_split_by_spaces.split(item.attrib["class"])))
 
             # 局部选项
             for local_option in item.findall("./option"):
@@ -404,22 +418,20 @@ def main():
 
                 if "name" in local_option.attrib:
                     scheme_key = local_option.attrib["name"]
-                    if scheme_key and scheme_key in conv_item_obj["scheme_data"]:
-                        conv_item_obj["scheme_data"][scheme_key].append(text_value)
+                    if scheme_key and scheme_key in conv_item_obj[
+                            "scheme_data"]:
+                        conv_item_obj["scheme_data"][scheme_key].append(
+                            text_value)
                     else:
                         conv_item_obj["scheme_data"][scheme_key] = [text_value]
             for key in xconv_options["default_scheme"]:
                 if key not in conv_item_obj["scheme_data"]:
-                    conv_item_obj["scheme_data"][key] = xconv_options["default_scheme"][
-                        key
-                    ]
+                    conv_item_obj["scheme_data"][key] = xconv_options[
+                        "default_scheme"][key]
 
             # 转换规则
-            if (
-                not options.rule_schemes
-                or 0 == len(options.rule_schemes)
-                or conv_item_obj["scheme"] in options.rule_schemes
-            ):
+            if (not options.rule_schemes or 0 == len(options.rule_schemes)
+                    or conv_item_obj["scheme"] in options.rule_schemes):
                 conv_item_obj["enable"] = True
 
             xconv_options["item"].append(conv_item_obj)
@@ -430,7 +442,8 @@ def main():
 
     # ========================================= 生成转换命令 =========================================
     if not xconv_options["data_version"] is None:
-        xconv_options["args"]["-a"] = '"' + str(xconv_options["data_version"]) + '"'
+        xconv_options["args"]["-a"] = '"' + str(
+            xconv_options["data_version"]) + '"'
 
     # ++++++++++++++++++++++++++++++++++++++++++ 全局命令和配置 ++++++++++++++++++++++++++++++++++++++++++
     global_cmd_args_map = xconv_options["args"].copy()
@@ -456,8 +469,10 @@ def main():
         for item_output in item_output_matrix:
             item_cmd_args_array = []
             item_cmd_args_array.extend(global_cmd_args_prefix_array)
-            item_cmd_args_array.extend(xconv_options["protocol_files"]["inputs"])
-            item_cmd_args_array.extend(xconv_options["data_source_dir"]["inputs"])
+            item_cmd_args_array.extend(
+                xconv_options["protocol_files"]["inputs"])
+            item_cmd_args_array.extend(
+                xconv_options["data_source_dir"]["inputs"])
 
             # merge global options
             if "tags" in item_output and item_output["tags"]:
@@ -496,12 +511,14 @@ def main():
                 item_cmd_args_array.append("-s")
                 item_cmd_args_array.append('"{:s}"'.format(conv_item["file"]))
                 item_cmd_args_array.append("-m")
-                item_cmd_args_array.append('"{:s}"'.format(conv_item["scheme"]))
+                item_cmd_args_array.append('"{:s}"'.format(
+                    conv_item["scheme"]))
             else:
                 for key in conv_item["scheme_data"]:
                     for opt_val in conv_item["scheme_data"][key]:
                         item_cmd_args_array.append("-m")
-                        item_cmd_args_array.append('"{:s}={:s}"'.format(key, opt_val))
+                        item_cmd_args_array.append('"{:s}={:s}"'.format(
+                            key, opt_val))
 
             item_cmd_args_array.extend(global_cmd_args_suffix_array)
             cmd_list.append(item_cmd_args_array)
@@ -551,34 +568,50 @@ def main():
             once_pick_count = 1
         pexec = None
         if not options.test:
-            pexec = Popen(
-                java_options, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=False
-            )
+            pexec = Popen(java_options,
+                          stdin=PIPE,
+                          stdout=PIPE,
+                          stderr=PIPE,
+                          shell=False)
 
             worker_thd_print_stdout = threading.Thread(
-                target=print_stdout_func, args=[pexec]
-            )
+                target=print_stdout_func, args=[pexec])
             worker_thd_print_stderr = threading.Thread(
-                target=print_stderr_func, args=[pexec]
-            )
+                target=print_stderr_func, args=[pexec])
             worker_thd_print_stdout.start()
             worker_thd_print_stderr.start()
 
-            while True:
-                cmd_picker_lock.acquire()
-                if len(cmd_list) <= 0:
-                    cmd_picker_lock.release()
-                    break
-
-                for _ in range(0, once_pick_count):
-                    if not cmd_list:
+            hold_cmd_picker_lock = False
+            try:
+                while True:
+                    cmd_picker_lock.acquire()
+                    hold_cmd_picker_lock = True
+                    if len(cmd_list) <= 0:
+                        hold_cmd_picker_lock = False
+                        cmd_picker_lock.release()
                         break
-                    pexec.stdin.write(" ".join(cmd_list.pop()).encode(java_encoding))
-                    pexec.stdin.write(os.linesep.encode(java_encoding))
 
-                cmd_picker_lock.release()
-                pexec.stdin.flush()
-            pexec.stdin.close()
+                    for _ in range(0, once_pick_count):
+                        if not cmd_list:
+                            break
+                        pexec.stdin.write(" ".join(
+                            cmd_list.pop()).encode(java_encoding))
+                        pexec.stdin.write(os.linesep.encode(java_encoding))
+
+                    hold_cmd_picker_lock = False
+                    cmd_picker_lock.release()
+                    pexec.stdin.flush()
+                pexec.stdin.close()
+            except Exception as ex:
+                cprintf_stderr(
+                    [print_style.FC_RED],
+                    "[ERROR] worker thread {0} exception: {1}" + os.linesep,
+                    idx,
+                    ex,
+                )
+                exit_data["exit_code"] = exit_data["exit_code"] + 1
+                if hold_cmd_picker_lock:
+                    cmd_picker_lock.release()
             for output_line in pexec.stdout.readlines():
                 print(output_line.decode(java_encoding))
             cmd_exit_code = pexec.wait()
@@ -602,9 +635,8 @@ def main():
                     # python2 must use encode string to bytes or there will be messy code
                     # python3 must not use encode methed because it will transform string to bytes
                     if sys.version_info.major < 3 and not conv_compat_py2_write_buffer:
-                        this_thd_cmds.append(
-                            " ".join(cmd_list.pop()).encode(console_encoding)
-                        )
+                        this_thd_cmds.append(" ".join(
+                            cmd_list.pop()).encode(console_encoding))
                     else:
                         this_thd_cmds.append(" ".join(cmd_list.pop()))
                 cmd_picker_lock.release()
@@ -612,13 +644,14 @@ def main():
             cprintf_stdout(
                 [print_style.FC_GREEN],
                 ('"{0}"' + os.linesep + "\t> {1}" + os.linesep).format(
-                    '" "'.join(java_options), (os.linesep + "\t> ").join(this_thd_cmds)
-                ),
+                    '" "'.join(java_options),
+                    (os.linesep + "\t> ").join(this_thd_cmds)),
             )
 
     # ----------------------------------------- 实际开始转换 -----------------------------------------
     for i in range(0, options.parallelism):
-        this_worker_thd = threading.Thread(target=worker_func, args=[i, exit_data])
+        this_worker_thd = threading.Thread(target=worker_func,
+                                           args=[i, exit_data])
         this_worker_thd.start()
         all_worker_thread.append(this_worker_thd)
 
@@ -628,9 +661,11 @@ def main():
 
     cprintf_stdout(
         [print_style.FC_MAGENTA],
-        "[INFO] all jobs done. {0} job(s) failed.{1}".format(exit_data["exit_code"], os.linesep),
+        "[INFO] all jobs done. {0} job(s) failed.{1}".format(
+            exit_data["exit_code"], os.linesep),
     )
     return exit_data["exit_code"]
+
 
 if __name__ == "__main__":
     exit(main())
