@@ -20,10 +20,15 @@ def main():
     console_encoding = sys.getfilesystemencoding()
     java_encoding = "utf-8"
 
-    xconv_error_log_rule = re.compile("^\\s*\\[?\\s*error", re.IGNORECASE)
-    xconv_warn_log_rule = re.compile("^\\s*\\[?\\s*warn", re.IGNORECASE)
-    xconv_info_log_rule = re.compile("^\\s*\\[?\\s*info", re.IGNORECASE)
-
+    xconv_error_log_rule = re.compile(
+        r"^(?:\x1b\[[0-?]*[ -/]*[@-~])*[\x00-\x1f\x7f]*\s*\[?\s*error\b",
+        re.IGNORECASE)
+    xconv_warn_log_rule = re.compile(
+        r"^(?:\x1b\[[0-?]*[ -/]*[@-~])*[\x00-\x1f\x7f]*\s*\[?\s*warn(ing)?\b",
+        re.IGNORECASE)
+    xconv_info_log_rule = re.compile(
+        r"^(?:\x1b\[[0-?]*[ -/]*[@-~])*[\x00-\x1f\x7f]*\s*\[?\s*info\b",
+        re.IGNORECASE)
     if 2 == sys.version_info[0] and "utf-8" != sys.getdefaultencoding().lower(
     ):
         try:
@@ -35,7 +40,7 @@ def main():
     xconv_split_by_spaces = re.compile("\\s+", re.IGNORECASE)
 
     xconv_options = {
-        "version": "1.4.3",
+        "version": "1.4.4",
         "conv_list": None,
         "real_run": True,
         "args": {},
@@ -536,7 +541,7 @@ def main():
     }
     cmd_picker_lock = threading.Lock()
 
-    def print_buffer_to_fd(styles, fd, buffer):
+    def print_buffer_to_fd(styles, fd, buffer, previous_styles=None):
         if sys.version_info.major >= 3:
             content = buffer.decode(java_encoding)
         else:
@@ -553,21 +558,38 @@ def main():
                 styles = [print_style.FC_YELLOW]
             elif xconv_info_log_rule.match(content):
                 styles = [print_style.FC_GREEN]
+            elif fd == sys.stderr and not previous_styles:
+                styles = [print_style.FC_CYAN]
+            else:
+                styles = previous_styles
         if not styles:
             fd.write(content)
-            return
+            try:
+                fd.flush()
+            except Exception:
+                pass
+            return styles
         if fd == sys.stdout:
             cprintf_stdout(styles, "{0}" + os.linesep, content)
         else:
             cprintf_stderr(styles, "{0}" + os.linesep, content)
+        try:
+            fd.flush()
+        except Exception:
+            pass
+        return styles
 
     def print_stdout_func(pexec):
+        previous_styles = None
         for output_line in pexec.stdout.readlines():
-            print_buffer_to_fd(None, sys.stdout, output_line)
+            previous_styles = print_buffer_to_fd(None, sys.stdout, output_line,
+                                                 previous_styles)
 
     def print_stderr_func(pexec):
+        previous_styles = None
         for output_line in pexec.stderr.readlines():
-            print_buffer_to_fd(None, sys.stderr, output_line)
+            previous_styles = print_buffer_to_fd(None, sys.stderr, output_line,
+                                                 previous_styles)
 
     def worker_func(idx, exit_data):
         java_options = [xconv_options["java_path"]]
@@ -632,8 +654,6 @@ def main():
                 exit_data["exit_code"] = exit_data["exit_code"] + 1
                 if hold_cmd_picker_lock:
                     cmd_picker_lock.release()
-            for output_line in pexec.stdout.readlines():
-                print(output_line.decode(java_encoding))
             cmd_exit_code = pexec.wait()
 
             worker_thd_print_stdout.join()
