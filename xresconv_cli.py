@@ -20,6 +20,10 @@ def main():
     console_encoding = sys.getfilesystemencoding()
     java_encoding = "utf-8"
 
+    xconv_error_log_rule = re.compile("^\\s*\\[?\\s*error", re.IGNORECASE)
+    xconv_warn_log_rule = re.compile("^\\s*\\[?\\s*warn", re.IGNORECASE)
+    xconv_info_log_rule = re.compile("^\\s*\\[?\\s*info", re.IGNORECASE)
+
     if 2 == sys.version_info[0] and "utf-8" != sys.getdefaultencoding().lower(
     ):
         try:
@@ -532,22 +536,38 @@ def main():
     }
     cmd_picker_lock = threading.Lock()
 
-    def print_buffer_to_fd(fd, buffer):
+    def print_buffer_to_fd(styles, fd, buffer):
         if sys.version_info.major >= 3:
-            fd.write(buffer.decode(java_encoding))
+            content = buffer.decode(java_encoding)
         else:
             if console_encoding == java_encoding or conv_compat_py2_write_buffer:
-                sys.stderr.write(buffer)
+                content = buffer
             else:
-                sys.stderr.write(buffer.decode(java_encoding))
+                content = buffer.decode(java_encoding)
+        if fd != sys.stdout and fd != sys.stderr:
+            styles = None
+        elif not styles:
+            if xconv_error_log_rule.match(content):
+                styles = [print_style.FC_RED]
+            elif xconv_warn_log_rule.match(content):
+                styles = [print_style.FC_YELLOW]
+            elif xconv_info_log_rule.match(content):
+                styles = [print_style.FC_GREEN]
+        if not styles:
+            fd.write(content)
+            return
+        if fd == sys.stdout:
+            cprintf_stdout(styles, "{0}" + os.linesep, content)
+        else:
+            cprintf_stderr(styles, "{0}" + os.linesep, content)
 
     def print_stdout_func(pexec):
         for output_line in pexec.stdout.readlines():
-            print_buffer_to_fd(sys.stdout, output_line)
+            print_buffer_to_fd(None, sys.stdout, output_line)
 
     def print_stderr_func(pexec):
         for output_line in pexec.stderr.readlines():
-            print_buffer_to_fd(sys.stderr, output_line)
+            print_buffer_to_fd(None, sys.stderr, output_line)
 
     def worker_func(idx, exit_data):
         java_options = [xconv_options["java_path"]]
