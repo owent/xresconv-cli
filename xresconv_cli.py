@@ -506,6 +506,8 @@ def main():
                 item_cmd_args_map["-t"] = item_output["type"]
             if "rename" in item_output and item_output["rename"]:
                 item_cmd_args_map["-n"] = '"{0}"'.format(item_output["rename"])
+            if "output_dir" in item_output and item_output["output_dir"]:
+                item_cmd_args_map["-o"] = '"{0}"'.format('"' + item_output["output_dir"] + '"')
 
             for key in item_cmd_args_map:
                 item_cmd_args_array.append(key)
