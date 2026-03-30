@@ -40,7 +40,7 @@ def main():
     xconv_split_by_spaces = re.compile("\\s+", re.IGNORECASE)
 
     xconv_options = {
-        "version": "1.4.4",
+        "version": "1.4.5",
         "conv_list": None,
         "real_run": True,
         "args": {},
