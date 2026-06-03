@@ -274,7 +274,7 @@ def cprintf_resolve_auto_mode():
         return "none"
     if os.getenv("TEAMCITY_VERSION"):
         TEAMCITY_VERSION = os.getenv("TEAMCITY_VERSION")
-        if re.search('^(9\.(0*[1-9]\d*)\.|\d{2,}\.)', TEAMCITY_VERSION,
+        if re.search('^(9\\.(0*[1-9]\\d*)\\.|\\d{2,}\\.)', TEAMCITY_VERSION,
                      re.IGNORECASE):
             return "term"
         else:
