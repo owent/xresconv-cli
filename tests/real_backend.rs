@@ -95,8 +95,16 @@ fn real_backend_sample_conversion() {
     fs::write(&conv_list, xml).unwrap();
 
     let output = Command::new(env!("CARGO_BIN_EXE_xresconv-cli"))
-        .arg("-p")
-        .arg("2")
+        // The checked-in reference was generated with Chinese locale; Java's
+        // default locale changes the rendered Excel time and its content hash.
+        .args([
+            "-p",
+            "2",
+            "-j",
+            "Duser.language=zh",
+            "-j",
+            "Duser.country=CN",
+        ])
         .arg(&conv_list)
         .output()
         .unwrap();
@@ -144,18 +152,25 @@ fn real_backend_sample_conversion() {
     }
 }
 
-/// 数据内容比较：忽略缩进/换行差异与 xres_ver（参考产物由 -Dxresloader.version=dev 生成）
+/// 数据内容比较：忽略缩进/换行差异与 xres_ver（参考产物可能由不同的后端版本生成）
 fn normalize(text: &str) -> String {
-    let masked = text
-        .replace("\r\n", "\n")
-        .replace("xres_ver = \"dev\"", "xres_ver = \"\"")
-        .replace("xres_ver = \"2.23.7\"", "xres_ver = \"\"");
+    let version = regex::Regex::new(r#"xres_ver = "[^"]*""#).unwrap();
+    let canonical = text.replace("\r\n", "\n");
+    let masked = version.replace_all(&canonical, "xres_ver = \"\"");
     // Preserve whitespace inside data strings. Only leading indentation varies.
     masked
         .lines()
         .map(str::trim_start)
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+#[test]
+fn reference_normalization_accepts_future_backend_versions_without_losing_data_whitespace() {
+    assert_eq!(
+        normalize("  xres_ver = \"2.99.1\"\r\n  value = \"a  b\"\r\n"),
+        "xres_ver = \"\"\nvalue = \"a  b\""
+    );
 }
 
 #[test]

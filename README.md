@@ -105,6 +105,12 @@ cargo test --workspace --locked --test real_backend -- --ignored --nocapture
 fake-java 在测试独立目录内从当前源码构建，过滤测试和覆盖率运行不会复用陈旧替身。
 覆盖率与测试证据见 [验证记录](doc/ai/validation.md)，不将单个平台的覆盖率视为所有平台分支的完整证明。
 
+CI 每次查询 xresloader 最新正式 Release，下载其 JAR 并校验 GitHub 发布资产的 SHA256；
+样本从同一 tag 检出，Git LFS 的 Excel 必须是已下载的工作簿。Java 使用最新 Temurin LTS，
+Python 使用最新稳定的 3.x（Python 没有单独的 LTS 发行系列）。
+常规 runner 使用 `*-latest`；Linux/Windows ARM 原生 runner 使用 GitHub 提供的专用标签，
+macOS x64 包在 `macos-latest` 上构建和冒烟。
+
 发布流程
 --------
 
@@ -116,6 +122,7 @@ fake-java 在测试独立目录内从当前源码构建，过滤测试和覆盖�
 
 示例截图
 ------
+
 ![示例截图-1](doc/snapshoot-1.png)
 
 ![示例截图-2](doc/snapshoot-2.png)

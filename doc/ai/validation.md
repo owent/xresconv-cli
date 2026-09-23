@@ -148,7 +148,8 @@ Skills 使用 YAML 解析器检查 frontmatter，核对 name/description 长度�
   用户 JAR 的 SHA256 为 `e6e75293f52cdbfef40c042c2077376ca1abca67842c6ff4fa0f5c25bc2e2829`。
 - 同时下载并校验官方 v2.23.7 Release JAR，SHA256 为
   `1cd8cfe7415adf46eb4b43376b07841d7fca8324b4bac2e0c7248feabeb11503`，用相同 5 个测试再次通过。
-  两个包都报告 2.23.7，哈希不同；CI 固定官方包及其哈希，不混用本机包的校验值。
+  两个包都报告 2.23.7，哈希不同；此条为当时固定后端的本地验收快照。后续 CI 改为每次查询最新正式 Release，
+  按该次 API 的资产 digest 验证 JAR，不混用本机包的校验值。
 - 每组 5 个测试覆盖：sample 参考 Lua、JAR 缺失、真实后端失败、proto2 与 proto3 的六种格式。
   两个协议版本 × 六种格式 × 文件/内联 scheme，共 24 个产物分别与独立直接 Java argv 调用逐字节一致。
   两个协议矩阵均经旧 Python 入口及 `XRESCONV_CLI_BIN` 使用本地编译程序。
@@ -178,3 +179,44 @@ Skills 使用 YAML 解析器检查 frontmatter，核对 name/description 长度�
 尚未执行：GitHub 上 15 目标实际构建、其他平台原生测试、首次 tag 公开发布/在线下载、Python 2.7 运行。
 CI 配置覆盖这些构建与测试路径，不能把配置完成或本机交叉检查报告为远程验收完成。
 AI 客户端自动路由/独立启动加载没有因本轮 Rust Skill 正文更新而重新验收。
+
+## 2026-09-23 GitHub Actions run 35853777700 故障修复
+
+实际读取 [owent/xresconv-cli 的 run 35853777700](https://github.com/owent/xresconv-cli/actions/runs/35853777700)
+所有失败步骤日志，运行提交为 `dc7b36393e722a8bf65e71963f88cc5b2fc7c9fe`。按共同根因归纳：
+
+- Linux/macOS 制品已编译，`scripts/release.ps1` 打包后在 `finally` 用 `Get-Item` 读取隐藏的 `.stage-*` 目录时报
+  `Could not find item`；普通测试和覆盖率中的 ZIP/TAR 测试因此失败。已在该安全检查中使用 `Get-Item -Force`。
+- 三个系统的真实后端测试读取 Git LFS 的 Excel 指针，xresloader 报“not a valid OOXML file”。
+  CI 现在按最新正式 Release tag 检出 sample，启用 LFS、执行 `git lfs pull`，并在转表前检查 Excel 大小及 ZIP 文件头。
+- `x86_64-unknown-linux-musl` 的原 PowerShell 冒烟在 `--version` 阶段失败；改为 Unix Bash 冒烟并显式核验可执行文件。
+  Windows 仍用 PowerShell。LoongArch 扩展包所需 apt 包在原 Ubuntu 24.04 镜像中不存在，改用 cross 的目标镜像。
+- Windows x64、Windows arm64 的常规测试与核心包构建在原 run 已通过；其他平台的本轮修复仍需新的远程 CI 验收。
+
+本地进一步执行：
+
+- 官方 GitHub API 当前最新 xresloader tag 为 `v2.23.7`，资产 digest 为
+  `sha256:1cd8cfe7415adf46eb4b43376b07841d7fca8324b4bac2e0c7248feabeb11503`；
+  从 workflow 提取的 Bash 解析脚本在该 API 快照上输出匹配 tag/文件名/digest，Adoptium API 返回最新 LTS `25`。
+- 独立稀疏克隆同一 tag 并执行 `git lfs pull` 后，Excel 为 45,962 字节的真实 OOXML 文件。
+- WSL Debian x64、Rust 1.98.1：使用默认链接器和与 CI 相同的 `musl-gcc` 分别构建发布二进制，
+  均实际运行 `--version` 退出 0；提取的 Unix 冒烟脚本在 musl-gcc 构建上通过版本、帮助和预览。
+- WSL 中用 PowerShell 7.6.6 实际打包 musl tar.gz，隐藏暂存目录清理通过；完整 Rust 常规测试通过，
+  包含先前失败的 ZIP/TAR 消费测试。
+- Linux 默认 Java 21 的参考样本仅在本地化时间值与对应 hash_code 不同；给该参考测试显式传入中文 JVM locale 后，
+  5 个真实后端测试全部通过，24 个文件/内联 scheme 产物仍与独立 Java 调用逐字节一致。
+- Windows Rust fmt/check/test/clippy 门禁重跑通过，常规 84 个 Rust 测试通过（新增 1 个未来后端版本参考归一化测试）。
+  Python 离线 unittest 仍为 13 个，由 Rust 测试入口调用。
+- Windows 在最终 locale 修复后再次运行官方 JAR 的 5 个真实后端测试，全部通过；
+  `cargo +1.88.0 check --workspace --all-targets --locked`、Markdown lint 和 `git diff --check` 通过。
+- Windows 用 cargo-llvm-cov 0.9.1 重跑 `--workspace --locked --fail-under-lines 90` 门禁，
+  行覆盖 1586/1692 = 93.74%，测试全部通过；此数值是 Windows 覆盖率，不代表 Linux/macOS 分支。
+- actionlint 1.7.12 通过其余全部规则；本地仅过滤它尚未收录、但 GitHub 官方 runner 表和镜像目录已列出的
+  `ubuntu-26.04-arm` 标签。未安装 ShellCheck，此项未执行。
+
+工作流使用 `ubuntu-latest`、`macos-latest`、`windows-latest`；ARM 原生 runner 没有官方滚动 `latest` 别名，
+分别使用当前可用的 `ubuntu-26.04-arm` 与 `windows-11-arm`。
+macOS x64 从 `macos-latest` ARM 主机构建，镜像模板包含 Rosetta 安装；这仍需远程冒烟确认。
+Python 的 `3.x` 由 setup-python 选择最新稳定 Python 3；Python 官方无单独 LTS 系列，Java LTS 从 Adoptium API 动态解析。
+MSRV 1.88.0 是兼容门禁，不是主构建的固定工具链。
+未提交、推送、触发新的远程 run 或发布；下一次 GitHub CI 的实际结果仍是外部验收项。

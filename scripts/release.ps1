@@ -55,7 +55,8 @@ if ($Mode -eq 'Package') {
     } finally {
         # Stage is a unique, directly created child of the resolved output root.
         $root = [IO.Path]::GetFullPath($OutputDirectory)
-        if ([IO.Path]::GetDirectoryName($stage) -ne $root -or (Get-Item -LiteralPath $stage).LinkType) { throw 'Unsafe staging cleanup path' }
+        # On Unix, .stage-* is hidden; Get-Item requires -Force to see it.
+        if ([IO.Path]::GetDirectoryName($stage) -ne $root -or (Get-Item -LiteralPath $stage -Force).LinkType) { throw 'Unsafe staging cleanup path' }
         Remove-Item -LiteralPath $stage -Recurse -Force
     }
     return

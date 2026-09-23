@@ -42,10 +42,12 @@ git grep -n -e load_xml_file -e load_global_options -e load_list_item_nodes -e w
 | R2 | rustfmt 支持检查模式；Clippy 支持 Cargo 工程与 lint 级别设置 | [rustfmt][rustfmt]、[Clippy][clippy] / rolling | 官方正文和本机帮助已核验；门禁 fmt/clippy -D warnings 已执行通过 | Cargo 门禁 |
 | X1 | xresconv-conf 提供转换列表规范及 include 示例 | [xresconv-conf][conf] / `dab714ae4ca6a0dc8af5410087ce90e2dfbe687c` | GitHub API 固定 main 快照；fixture 合同测试 | 迁移合同 |
 | R3 | clap 4.6.7、roxmltree 0.21.1、regex 1.13.1、windows-sys 0.61.2、tempfile 3.27.0；新增 ctrlc 3.5.2、encoding_rs 0.8.41、libc 0.2.189 | [crates.io API][crates-io] / 2026-09-23 max_stable_version | 最新稳定版已查询；Cargo 更新锁文件，encoding_rs 的 MSRV 1.88 已实测 | Cargo.toml/Cargo.lock |
-| X2 | xresloader v2.23.7 release 资产含 `xresloader-2.23.7.jar`；`sample/proto_v3/kind.pb` 已随仓库提交 | GitHub API / v2.23.7 | 2026-09-23 API 核验 + 本机 jar/sample 实测通过 | CI 集成 job 与本机 E2E 依据 |
-| CI1 | checkout 7.0.1、upload-artifact 7.0.1、download-artifact 8.0.1、setup-python 7.0.0、setup-java 6.0.1、stale 11.0.0 | 各官方仓库 GitHub API releases/latest + git/ref/tags | 2026-09-23 核验提交类型/SHA；完整 SHA 位于 workflows | .github/workflows |
-| CI2 | ubuntu-latest 预装 Android NDK（`ANDROID_NDK_LATEST_HOME`）与 docker；ubuntu-24.04-arm 为原生 ARM runner | GitHub runner images 文档 / rolling | 文档核验；首次 tag 构建实跑确认 | build.yml 扩展平台 |
-| X3 | 固定后端 stdin 不支持反斜杠转义 | [Main.java][backend-parser] / `7263367d99f04af8fca8b1fd80cac29b05f2f6b0`（v2.23.7 peeled commit） | 本地源码逐行核对 + 真实 JAR 24 产物对照 | 参数编码与 CI sample 固定 |
+| X2 | xresloader v2.23.7 release 资产含 `xresloader-2.23.7.jar`，SHA256 见验证记录；样本 Excel 由 Git LFS 管理 | GitHub API / v2.23.7，仓库 `.gitattributes` | 本机包与官方包各跑 5 个真实测试；run 35853777700 的 LFS 指针失败已定位 | 本地 E2E 基线；CI 改为解析最新 Release |
+| CI1 | checkout v7、upload-artifact v7、download-artifact v8、setup-python v7、setup-java v6、stale v11 | [checkout][checkout-action]、[Python setup][setup-python]、[Java setup][setup-java] | 用户要求随大版本接收更新；源码内 uses 不再钉 SHA，版本策略需在每次 CI 验收 | .github/workflows |
+| CI2 | `ubuntu-latest`/`macos-latest`/`windows-latest` 为滚动标签；ARM 原生 runner 仍需架构专用标签 | [官方 runner 表][runners]、[镜像标签][runner-images] / rolling | GitHub 文档核验；macOS latest 为 ARM，Intel 包需交叉构建并以 Rosetta 冒烟 | build.yml 矩阵 |
+| X3 | 本地 2.23.7 后端 stdin 不支持反斜杠转义 | [Main.java][backend-parser] / `7263367d99f04af8fca8b1fd80cac29b05f2f6b0` | 本地源码逐行核对 + 真实 JAR 24 产物对照；CI 最新版仍须每次验证 | 参数编码与 CI 最新版行为风险 |
+| CI4 | setup-python 的 `3.x` 取最新稳定 Python 3；Python 无单独 LTS 系列；Adoptium API 有 `most_recent_lts` | [Python setup][setup-python]、[Python 版本状态][python-versions]、[Adoptium API][adoptium-api] | 官方文档与实时 API 核验；CI 动态解析 Temurin LTS | build.yml 环境选择 |
+| CI5 | GitHub Release API 资产提供 `digest`；xresloader 样本 Excel 为 LFS 指针 | [Release API][release-api]、[checkout LFS][checkout-action] | API 与实际失败 run 核对；CI 校验 digest 与 OOXML 文件头 | 最新 JAR 与样本一致性 |
 | CI3 | Linux、macOS、Windows 的 x64/arm64 原生 runner 标签 | [官方 runner 表][runners] / 2026-09-23 | 官方正文核验；远程执行待首次 CI | build.yml 核心测试矩阵 |
 | T4 | cargo-llvm-cov 0.9.1 / actionlint 1.7.12 | [覆盖率工具][llvm-cov]、[actionlint][actionlint] | crates.io / GitHub API 核验；本机运行，actionlint ZIP 校验官方 asset digest | 覆盖率与 CI 静态检查 |
 
@@ -113,6 +115,13 @@ Codex 与 Kilo 共用根规则和 `.agents/skills/`，目前不需要复制文�
 [runners]: https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 [llvm-cov]: https://github.com/taiki-e/cargo-llvm-cov
 [actionlint]: https://github.com/rhysd/actionlint/releases/tag/v1.7.12
+[checkout-action]: https://github.com/actions/checkout/blob/main/README.md
+[setup-python]: https://github.com/actions/setup-python/blob/main/docs/advanced-usage.md
+[setup-java]: https://github.com/actions/setup-java/blob/main/README.md
+[runner-images]: https://github.com/actions/runner-images/blob/main/README.md
+[python-versions]: https://devguide.python.org/versions/
+[adoptium-api]: https://github.com/adoptium/api.adoptium.net/blob/main/docs/cookbook.adoc
+[release-api]: https://docs.github.com/en/rest/releases/releases
 [ps-ref]: ../../.agents/skills/terminal-tooling/references/powershell.md
 [tools-ref]: ../../.agents/skills/terminal-tooling/references/modern-cli-tools.md
 [clients-ref]: ../../.agents/skills/ai-guidance-maintenance/references/client-compatibility.md

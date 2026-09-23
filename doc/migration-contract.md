@@ -38,7 +38,7 @@ Java 进程数不超过请求的正整数并发上限，也不超过实际命令
 
 ## stdin 协议边界
 
-固定后端 [Main.java](https://github.com/xresloader/xresloader/blob/7263367d99f04af8fca8b1fd80cac29b05f2f6b0/src/org/xresloader/core/Main.java)
+本地 2.23.7 基线的 [Main.java](https://github.com/xresloader/xresloader/blob/7263367d99f04af8fca8b1fd80cac29b05f2f6b0/src/org/xresloader/core/Main.java)
 使用单双引号或非空白串分词，没有 shell 反斜杠转义。路径中的反斜杠保持原样；包含双引号时可用单引号包裹。
 同时含两种引号和空白的单个值无法无损表示，CLI 在启动后端前报错。NUL/CR/LF 不允许变成额外 stdin 命令。
 XML 的 `option` 仍是已有后端命令片段，其内部引号由配置作者提供；`--` 后的值遵循真实 argv 边界。
@@ -46,7 +46,10 @@ XML 的 `option` 仍是已有后端命令片段，其内部引号由配置作者
 
 ## 发布与回滚
 
-- `build.yml` 在普通 push/PR 和 tag 复用调用中运行：六种原生 OS/架构测试、MSRV 检查、三个系统真实后端测试、15 个制品目标。
+- `build.yml` 在普通 push/PR 和 tag 复用调用中运行：Linux x64/arm64、macOS arm64、Windows x64/arm64 原生测试、
+  MSRV 检查、三个系统真实后端测试、15 个制品目标。macOS x64 在 `macos-latest` 构建并通过 Rosetta 冒烟。
+- 常规 x64 runner 使用 `*-latest`；Linux/Windows ARM 原生 runner 无滚动 `latest` 标签，使用 GitHub 当前提供的 ARM 专用标签。
+  集成测试从 GitHub 最新正式 Release 解析后端 tag/JAR SHA256，用同一 tag 的 Git LFS 样本，并查询最新 Temurin LTS。
 - 核心 8 包为 Linux GNU/musl x64/arm64、macOS x64/arm64、Windows MSVC x64/arm64。
   7 个扩展目标失败不会阻塞核心发布；其 JDK 可用性和制品运行仍需各平台验收。
 - tag 必须匹配 Cargo 版本；只有门禁和必需制品/校验和完整后才发布。发布任务独占内容写权限，构建只读。

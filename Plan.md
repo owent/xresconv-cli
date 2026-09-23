@@ -9,7 +9,9 @@ CLI 不绑定 JDK；本机真实验收使用 OpenJDK 25.0.4.1 + xresloader 2.23.
 
 本地常规测试、真实后端对照和最低工具链检查已执行；最终数量与覆盖率见 [验证记录](doc/ai/validation.md)。
 发布配置包含 8 个核心包、7 个扩展包，tag 通过门禁后自动公开 Release。
-未完成外部验收：GitHub runner 上的跨平台实际构建/运行、首次 tag 发布下载与 Python 2.7 运行。
+[首次 CI run](https://github.com/owent/xresconv-cli/actions/runs/35853777700) 暴露了跨平台打包清理、LFS 样本和 musl 冒烟问题；
+已按实际日志修复并待下一次远程运行验收。Windows x64/arm64 常规测试与打包在该次 run 通过。
+首次 tag 发布下载与 Python 2.7 运行尚未验收。
 本轮未提交、推送、打 tag 或发布。
 
 ## 阶段与验收
@@ -56,10 +58,12 @@ CLI 不绑定 JDK；本机真实验收使用 OpenJDK 25.0.4.1 + xresloader 2.23.
 
 - [x] 常规 push/PR 保存预编译 artifacts；tag 复用完整门禁。
 - [x] 版本与 tag 一致性、8 个核心制品完整性、SHA256 与 ZIP/TAR 打包消费测试。
-- [x] 发布任务独占写权限，Actions 固定官方当前版本 SHA；上传成功后公开，预发布不替换 latest。
+- [x] 发布任务独占写权限，Actions 使用官方当前大版本标签；上传成功后公开，预发布不替换 latest。
+- [x] CI 动态查询 xresloader 最新正式 Release、同 tag 样本与资产 SHA256，拉取并验证 Git LFS Excel；Java 查询最新 Temurin LTS，Python 使用最新稳定 3.x。
+- [x] 修复跨平台 PowerShell 隐藏暂存目录清理；Unix 冒烟改用 Bash，LoongArch 扩展包改用 cross。
 - [x] 环境路径缺失继续缓存/下载；原子安装、有限网络等待、失败不损坏旧缓存。
 - [x] README、历史记录、工程指引、Rust Skill、来源与验证记录同步。
-- [ ] 首次 GitHub tag 流程与全部平台解压/运行验收，扩展目标为尽力构建。
+- [ ] 修复后的 GitHub CI 复跑、首次 tag 流程与全部平台解压/运行验收，扩展目标为尽力构建。
 - [ ] Python 2.7 运行验收：兼容写法保留，当前机器只有 Python 3。
 
 ## 交接
