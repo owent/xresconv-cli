@@ -95,8 +95,8 @@ fn real_backend_sample_conversion() {
     fs::write(&conv_list, xml).unwrap();
 
     let output = Command::new(env!("CARGO_BIN_EXE_xresconv-cli"))
-        // The checked-in reference was generated with Chinese locale; Java's
-        // default locale changes the rendered Excel time and its content hash.
+        // The checked-in reference was generated with Chinese locale and
+        // Asia/Shanghai time zone. Both affect Excel values and content hashes.
         .args([
             "-p",
             "2",
@@ -104,6 +104,8 @@ fn real_backend_sample_conversion() {
             "Duser.language=zh",
             "-j",
             "Duser.country=CN",
+            "-j",
+            "Duser.timezone=Asia/Shanghai",
         ])
         .arg(&conv_list)
         .output()

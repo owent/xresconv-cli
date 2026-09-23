@@ -47,11 +47,11 @@ XML 的 `option` 仍是已有后端命令片段，其内部引号由配置作者
 ## 发布与回滚
 
 - `build.yml` 在普通 push/PR 和 tag 复用调用中运行：Linux x64/arm64、macOS arm64、Windows x64/arm64 原生测试、
-  MSRV 检查、三个系统真实后端测试、15 个制品目标。macOS x64 在 `macos-latest` 构建并通过 Rosetta 冒烟。
+  MSRV 检查、三个系统真实后端测试、14 个制品目标。macOS x64 在 `macos-latest` 构建并通过 Rosetta 冒烟。
 - 常规 x64 runner 使用 `*-latest`；Linux/Windows ARM 原生 runner 无滚动 `latest` 标签，使用 GitHub 当前提供的 ARM 专用标签。
   集成测试从 GitHub 最新正式 Release 解析后端 tag/JAR SHA256，用同一 tag 的 Git LFS 样本，并查询最新 Temurin LTS。
 - 核心 8 包为 Linux GNU/musl x64/arm64、macOS x64/arm64、Windows MSVC x64/arm64。
-  7 个扩展目标失败不会阻塞核心发布；其 JDK 可用性和制品运行仍需各平台验收。
+  6 个扩展目标失败不会阻塞核心发布；其 JDK 可用性和制品运行仍需各平台验收。
 - tag 必须匹配 Cargo 版本；只有门禁和必需制品/校验和完整后才发布。发布任务独占内容写权限，构建只读。
 - Release 先保持草稿，全部上传成功才公开；预发布不标记 latest；已公开版本拒绝覆盖。
 - 用户回滚时下载上一版对应平台包，校验 SHA256 后替换本地安装，或设置 `XRESCONV_CLI_BIN` 指向已验证旧二进制。
@@ -59,5 +59,6 @@ XML 的 `option` 仍是已有后端命令片段，其内部引号由配置作者
 - Python 下载只读取官方仓库 API/制品，限时限量；从压缩包只复制唯一的普通二进制文件，拒绝链接、空文件和路径穿越。
 
 本轮只完成本地修复与发布流程配置，没有提交、推送 tag、上传或公开 Release。
-Linux/macOS/ARM 的实际构建和运行验收由首次 CI 结果补齐；Python 2.7 运行未验收。
+第二次 CI 已通过 Linux/macOS/ARM 常规测试与全部 8 个核心包构建/冒烟；三平台真实后端测试修复后待复跑，
+首次 tag 发布与 Python 2.7 运行仍未验收。
 Windows 本地覆盖率只覆盖本平台编译分支，不能作为跨平台或 100% 分支覆盖证明。

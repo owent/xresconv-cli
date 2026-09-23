@@ -125,12 +125,14 @@ jobs:
           ref: ${{ needs.backend.outputs.tag }}
           path: xresloader-src
           sparse-checkout: sample
-          lfs: true
+          lfs: false
           persist-credentials: false
+        env:
+          GIT_LFS_SKIP_SMUDGE: '1'
       - name: Materialize and verify Git LFS sample
         shell: bash
         run: |
-          git -C xresloader-src lfs pull --include='sample/*' --exclude=''
+          git -C xresloader-src lfs pull --include='sample/资源转换示例.xlsx' --exclude=''
           python - <<'PY'
           from pathlib import Path
           sample = Path('xresloader-src/sample/资源转换示例.xlsx')
@@ -183,7 +185,6 @@ jobs:
           - { os: ubuntu-latest, target: i686-unknown-linux-gnu, packages: gcc-multilib, optional: true }
           - { os: ubuntu-latest, target: armv7-unknown-linux-gnueabihf, packages: gcc-arm-linux-gnueabihf, linker: arm-linux-gnueabihf-gcc, optional: true }
           - { os: ubuntu-latest, target: riscv64gc-unknown-linux-gnu, packages: gcc-riscv64-linux-gnu, linker: riscv64-linux-gnu-gcc, optional: true }
-          - { os: ubuntu-latest, target: loongarch64-unknown-linux-gnu, cross: true, optional: true }
           - { os: ubuntu-latest, target: aarch64-linux-android, optional: true }
           - { os: ubuntu-latest, target: x86_64-unknown-freebsd, cross: true, optional: true }
     env:

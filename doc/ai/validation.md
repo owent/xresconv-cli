@@ -220,3 +220,26 @@ macOS x64 从 `macos-latest` ARM 主机构建，镜像模板包含 Rosetta 安�
 Python 的 `3.x` 由 setup-python 选择最新稳定 Python 3；Python 官方无单独 LTS 系列，Java LTS 从 Adoptium API 动态解析。
 MSRV 1.88.0 是兼容门禁，不是主构建的固定工具链。
 未提交、推送、触发新的远程 run 或发布；下一次 GitHub CI 的实际结果仍是外部验收项。
+
+## 2026-09-23 GitHub Actions run 35861863204 故障修复
+
+读取 [run 35861863204](https://github.com/owent/xresconv-cli/actions/runs/35861863204)
+的所有失败步骤日志，提交为 `de6a0278ee3d6c79eb68e3e67f188f56c6d17f86`。
+五平台普通测试、90% 覆盖率门禁、全部 8 个核心平台构建与冒烟以及除 LoongArch 外的扩展包均通过；失败集中于以下三处：
+
+- Linux/macOS 真实后端测试各 4/5 通过；参考 Lua 对照中的无时区日期相差 28,800 秒，连带 `hash_code` 改变。
+  在 WSL 用 `TZ=UTC` 复现同样差异后，参考测试增加 `-Duser.timezone=Asia/Shanghai`，该单项及全部 5 项真实后端测试均通过。
+  JVM 语言与时区仅固定参考样本测试，不改变 CLI 正常转表的默认时区。
+- Windows 的第二次 `actions/checkout@v7` 在自动物化无关的 `sample/benchmark/资源转换示例-大文件.xlsx`
+  时收到 LFS `Authentication required: Bad credentials`。现检出时跳过自动 smudge，
+  显式 `git lfs pull --include='sample/资源转换示例.xlsx' --exclude=''`，仍验证工作簿的 OOXML 文件头。
+  Windows 本机在公开 tag 的浅克隆中实测：必需 Excel 从 130 字节指针变为 45,962 字节 ZIP，
+  benchmark 大文件保持 133 字节指针；随后的 Windows 5 项真实后端测试通过。
+- LoongArch 可选包在 cross 构建时将 LoongArch 对象交给 x64 的 `cc`/`rust-lld`，报架构不兼容。
+  按产品范围将该非必需目标从矩阵移除；其余 8 个核心目标及 6 个扩展目标保留。
+
+本轮 `actionlint` 对修改后的 workflow 通过，仍只过滤本地 actionlint 1.7.12 未识别的
+`ubuntu-26.04-arm` 标签。修复后尚未有新的远程 run；macOS 真实后端和首次 tag 发布待远程验收。
+Windows 的 `cargo fmt/check/test/clippy` 全部门禁通过；WSL 普通 Rust 测试 84 项通过。
+WSL 首次常规测试因调用环境漏加已有的 PowerShell 7 路径而使 5 个发布脚本测试无法启动；
+补入该路径后同一命令全部通过，此次初始失败不是产品断言失败。

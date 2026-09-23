@@ -20,7 +20,7 @@ xresconv-cli
 | Windows arm64 | `xresconv-cli-<version>-aarch64-pc-windows-msvc.zip` |
 
 以下扩展平台在发布流水线中尽力构建（失败不阻塞发布，不保证每个版本都有产物）：
-Windows x86、Linux x86/ARMv7/LoongArch64/RISC-V 64、Android arm64、FreeBSD x64。
+Windows x86、Linux x86/ARMv7/RISC-V 64、Android arm64、FreeBSD x64。
 这些平台仍需能够运行兼容的 Java/xresloader；不提供无独立 CLI/JVM 运行环境的 iOS 包。
 
 解压后将 `xresconv-cli`（Windows 为 `xresconv-cli.exe`）放入 PATH 即可。
