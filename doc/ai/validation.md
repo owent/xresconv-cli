@@ -2,7 +2,7 @@
 
 ## 文档检查
 
-执行目录：仓库根。检查范围：`AGENTS.md`、`Plan.md`、`doc/migration-contract.md`、`.agents/skills/**/*.md`、`doc/ai/**/*.md`。
+执行目录：仓库根。检查范围：`AGENTS.md`、`doc/migration-contract.md`、`.agents/skills/**/*.md`、`doc/ai/**/*.md`。
 配置见 [.markdownlint-cli2.jsonc](../../.markdownlint-cli2.jsonc)：启用默认规则，行长 160，表格不检查行长。
 该例外避免为了长路径和来源 URL 破坏表格；其余规则不全局关闭。
 

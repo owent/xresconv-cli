@@ -8,7 +8,6 @@
   },
   "globs": [
     "AGENTS.md",
-    "Plan.md",
     "doc/migration-contract.md",
     ".agents/skills/**/*.md",
     "doc/ai/**/*.md"

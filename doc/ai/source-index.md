@@ -27,7 +27,7 @@ git grep -n -e load_xml_file -e load_global_options -e load_list_item_nodes -e w
 
 - `.kilo/worktrees/torch-nasturtium` 是 Git 列出的独立 detached worktree；不纳入本轮修改或验证范围。
 - 文本规则：`.gitattributes` 指定 Markdown 为 text/CRLF；许可证为 MIT。
-- `impact`：根规则、Rust Skill 和 [Plan.md](../../Plan.md)。源码或目录变化时更新相应状态。
+- `impact`：根规则、Rust Skill、[迁移合同](../migration-contract.md) 与 [验证记录](validation.md)。源码或目录变化时更新相应状态。
 
 ## 外部结论
 

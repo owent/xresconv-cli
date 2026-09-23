@@ -50,7 +50,7 @@
 - 本地/mock、固定版本后端集成、预发布和生产验收分别保存结果。测试环境通过不代表生产成功。
 - 超时可能发生在远程动作成功之后；查询实际状态，必要时使用幂等键或去重，不能盲目重放创建/部署/发送操作。[幂等重试][retry]
 
-本仓库的具体发行任务与未决项在 [Plan.md](../../Plan.md)，当前没有生产部署验收。
+本仓库的发行结果见 [验证记录](validation.md)；当前没有生产部署验收。
 网络可恢复故障遵守退避、抖动与 Retry-After；参数、解析或权限错误先定位，不无限重试。
 
 [secrets]: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html

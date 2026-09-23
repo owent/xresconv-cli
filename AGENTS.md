@@ -5,7 +5,6 @@
 - 本项目是读取 xresconv-conf 转换列表、调度 xresloader 后端的 CLI；自 2.0.0 起为 Rust 实现（单 Cargo package，根 `Cargo.toml`）。
 - 新的实现、测试和开发指引围绕 Rust/Cargo 建立。历史资料（Python 入口）用于核对兼容行为，不扩展旧技术栈的工具链或教学内容。
 - Python 入口（`xresconv-cli.py`、`__main__.py`、`xresconv_cli.py`）为兼容转发层：提示升级并转交 Rust 二进制（`XRESCONV_CLI_BIN` 指定路径，缺失时从 GitHub Releases 下载最新版本），不含实际转表逻辑。
-- 重构阶段和验收见 [Plan.md](Plan.md)。
 - xresloader 与 xresconv-conf 是外部边界；本仓库不承担后端导出引擎的重写。
 
 ## 不可省略的工程原则
@@ -22,7 +21,7 @@
 10. **先用已有工具**：按任务选择现代 CLI；缺失就回退，安装/升级与联网查资料分开。性能结论需真实基准，不能依据实现语言或宣传。
 
 实现、修复与评审按 [工程流程](doc/ai/engineering-workflow.md) 执行；安全、迁移与交付按 [安全与交付](doc/ai/security-and-delivery.md) 选取适用步骤。
-未经要求不自动提交、推送、合并或发布。完工前核对本次影响的代码、测试、docs、Skills、来源和 Plan，并报告未完成项。
+未经要求不自动提交、推送、合并或发布。完工前核对本次影响的代码、测试、docs、Skills、来源和未完成项，并报告结果。
 
 ## 按任务读取
 
@@ -34,7 +33,6 @@
 | 编写/排查 PowerShell、选择 CLI、处理引用/编码/退出码或自动化进程 | [terminal-tooling](.agents/skills/terminal-tooling/SKILL.md) |
 | 新功能、故障修复、评审、文档和交接的工程步骤 | [工程流程](doc/ai/engineering-workflow.md) |
 | 本地调试、MCP、秘密、CI、迁移与发布准备 | [安全与交付](doc/ai/security-and-delivery.md) |
-| 迁移优先级、完成状态、交接 | [Plan.md](Plan.md) |
 | 项目基线、版本与官方依据 | [来源索引](doc/ai/source-index.md) |
 | 文档检查、客户端加载及 Skill 评估 | [验证记录与方法](doc/ai/validation.md) |
 | 初始化或审计工程指引的完整性 | [原始要求覆盖表](doc/ai/requirements-coverage.md) |

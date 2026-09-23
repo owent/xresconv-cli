@@ -2,7 +2,7 @@
 
 核验日期：2026-09-23。Python 行为基线为 `656c7e3d44efee978334e0364eb7de0fe3c8778c`；
 当前单 Cargo package 的实现按 CLI、XML、选项、规划、执行、进程树和颜色输出分工。
-完成状态在 [Plan](../Plan.md)，运行证据在 [验证记录](ai/validation.md)。
+运行证据与发布状态见 [验证记录](ai/validation.md)。
 
 ## 保留的行为
 
