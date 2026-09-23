@@ -58,7 +58,9 @@ XML 的 `option` 仍是已有后端命令片段，其内部引号由配置作者
   不修改 XML/输入数据，不自动删除旧版。已缓存二进制不会在每次启动时联网升级。
 - Python 下载只读取官方仓库 API/制品，限时限量；从压缩包只复制唯一的普通二进制文件，拒绝链接、空文件和路径穿越。
 
-本轮只完成本地修复与发布流程配置，没有提交、推送 tag、上传或公开 Release。
-第三次 CI 已通过 Linux/macOS/ARM 常规测试、覆盖率及全部 8 个核心包构建/冒烟；
-外部后端样本测试已退出本仓库门禁。解耦后的 CI、首次 tag 发布与 Python 2.7 运行仍未验收。
-Windows 本地覆盖率只覆盖本平台编译分支，不能作为跨平台或 100% 分支覆盖证明。
+解耦后的 [常规 CI](https://github.com/owent/xresconv-cli/actions/runs/35871630941) 18 个 job 全部通过；
+[首次 tag 流程](https://github.com/owent/xresconv-cli/actions/runs/35872817845) 已公开 `v2.0.0` 与 11 个平台包。
+公开 Release 的规范资产 URL 使用 `owent/xresconv-cli`，暴露旧 Python 入口只接受旧组织路径的问题；
+`v2.0.1` 已修复并公开发布；tag 流程 20 个 job 全部通过，旧 Python 入口已从空缓存下载并运行最新版本。
+实际结果见 [验证记录](ai/validation.md)。
+规则注入、Skill 发现和 Python 2.7 运行不属于当前验收范围。Windows 本地覆盖率只覆盖本平台编译分支。

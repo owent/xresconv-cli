@@ -264,3 +264,34 @@ Windows `cargo fmt --all --check`、`cargo check --workspace --locked`、
 Windows cargo-llvm-cov 0.9.1 的 90% 行门禁通过，行覆盖 1586/1692 = 93.74%。
 actionlint 1.7.12 验证现行四个 job 和 11 个制品目标，仍仅过滤其未知但 GitHub 已提供的 `ubuntu-26.04-arm` 标签。
 本轮未提交、推送或触发解耦后的远程 CI；首次 tag 发布仍未验收。
+
+## 2026-09-23 解耦 CI、首次发布与规范地址修复
+
+- [常规 CI run 35871630941](https://github.com/owent/xresconv-cli/actions/runs/35871630941) 在
+  `33f6e54fa72eb3bc0eaf68754dfacd808d0da0d6` 完成，18 个 job 全部成功：五平台原生测试、
+  lint、90% 行覆盖率门禁、8 个核心包和 3 个可选扩展包。当前门禁未查询或执行外部 xresloader 资源。
+- 从该 run 下载全部 11 个包及 SHA256 到忽略的 `target/plan-release-check/`，
+  `scripts/release.ps1 -Mode Verify` 确认 11 个校验和与 8 个核心包齐全；
+  全部 11 个压缩包解压后均有普通二进制、README 与 LICENSE。
+  解压后的 Windows x64 包执行 `--version`/`--help`，WSL Debian 执行 Linux x64 GNU/musl 包的
+  `--version`/`--help`，均成功；其余平台运行证据来自对应 CI runner 的打包前冒烟，
+  不声称本机执行了 macOS、ARM、Android、RISC-V 或 FreeBSD 二进制。
+- [首次 tag run 35872817845](https://github.com/owent/xresconv-cli/actions/runs/35872817845)
+  在同一提交成功，`v2.0.0` 已公开，11 个平台包及各自 SHA256 共 22 个资产。
+  GitHub 公开资产 URL 使用仓库规范路径 `owent/xresconv-cli`；旧 Python 入口以独立空缓存和缺失的
+  `XRESCONV_CLI_BIN` 实际运行时因 `invalid GitHub release asset URL` 退出 1。
+- 修复下载器使用规范 API/页面地址，允许规范及旧组织两种资产路径，仍拒绝外部主机和伪装 owner。
+  13 个 Python 离线 unittest 通过；同一独立缓存场景下，修复后的旧入口下载 `v2.0.0`、
+  校验 SHA256 并运行，`--version` 输出 `2.0.0`、退出 0。
+  `v2.0.1` 本地 `cargo fmt/check/test/clippy --locked` 门禁通过；83 个 Rust 测试通过。
+- 按本轮用户指示，规则注入、Skill 发现与 Python 2.7 运行不再作为验收门禁。
+  既往未执行记录保留为当时的事实，不再列入 Plan 待办。
+- [v2.0.1 tag run 35874108129](https://github.com/owent/xresconv-cli/actions/runs/35874108129)
+  在提交 `eae4ffc97d9d576128037c2c7f1c935c5d586e40` 完成，20 个 job 全部成功；
+  [公开 Release](https://github.com/owent/xresconv-cli/releases/tag/v2.0.1) 非草稿、非预发布，
+  latest API 返回 `v2.0.1` 和 22 个资产。
+  重新下载 11 包及 SHA256，`scripts/release.ps1 -Mode Verify` 通过，全部压缩包解压成功；
+  解压后的 Windows x64 和 WSL Linux x64 GNU/musl 包执行 `--version`/`--help` 均通过。
+  其他目标由各自 CI runner 在打包前运行冒烟；Android、RISC-V、FreeBSD 仅尽力构建与解压。
+- 修复后的旧 Python 入口在独立空缓存、`XRESCONV_CLI_BIN` 指向不存在路径时，
+  从公开 latest Release 下载并校验 Windows x64 包，转交运行得到 `2.0.1`、退出 0。
