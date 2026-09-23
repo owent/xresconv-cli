@@ -8,7 +8,7 @@
 3. 从 GitHub Releases 下载最新版本并写入缓存
 
 Rust 版本发布页（含各平台预编译二进制）：
-https://github.com/xresloader/xresconv-cli/releases
+https://github.com/owent/xresconv-cli/releases
 """
 
 from __future__ import unicode_literals
@@ -36,12 +36,12 @@ UPGRADE_MESSAGE = (
     "[DEPRECATED] xresconv-cli 已用 Rust 重写，Python 版本不再维护，本入口仅做兼容转发。\n"
     "[DEPRECATED] xresconv-cli has been rewritten in Rust; this Python entry only forwards to the Rust binary.\n"
     "建议直接使用预编译可执行文件 / Please use the prebuilt binary directly:\n"
-    "  https://github.com/xresloader/xresconv-cli/releases\n"
+    "  https://github.com/owent/xresconv-cli/releases\n"
 )
 
 BIN_ENV = "XRESCONV_CLI_BIN"
-RELEASES_API = "https://api.github.com/repos/xresloader/xresconv-cli/releases/latest"
-RELEASES_PAGE = "https://github.com/xresloader/xresconv-cli/releases"
+RELEASES_API = "https://api.github.com/repos/owent/xresconv-cli/releases/latest"
+RELEASES_PAGE = "https://github.com/owent/xresconv-cli/releases"
 BIN_NAME = "xresconv-cli.exe" if os.name == "nt" else "xresconv-cli"
 
 
@@ -106,8 +106,12 @@ def http_get(url, max_size=128 * 1024 * 1024):
 def release_url(asset):
     url = asset.get("browser_download_url", "")
     parsed = urlparse(url)
+    allowed_paths = (
+        "/owent/xresconv-cli/releases/download/",
+        "/xresloader/xresconv-cli/releases/download/",
+    )
     if (parsed.scheme != "https" or parsed.netloc != "github.com"
-            or not parsed.path.startswith("/xresloader/xresconv-cli/releases/download/")):
+            or not parsed.path.startswith(allowed_paths)):
         raise RuntimeError("invalid GitHub release asset URL")
     return url
 

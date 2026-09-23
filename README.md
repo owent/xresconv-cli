@@ -8,7 +8,7 @@ xresconv-cli
 安装
 ------
 
-从 [GitHub Releases](https://github.com/xresloader/xresconv-cli/releases) 下载对应平台的预编译包：
+从 [GitHub Releases](https://github.com/owent/xresconv-cli/releases) 下载对应平台的预编译包：
 
 | 平台 | 制品 |
 | --- | --- |
@@ -59,11 +59,11 @@ Python 兼容入口
 
 1. 环境变量 `XRESCONV_CLI_BIN` 指定的可执行文件路径；不存在时提示并继续尝试缓存/下载。
 2. 缓存目录中已下载的二进制（Windows 为 `%LOCALAPPDATA%\xresconv-cli\bin`，其他平台为 `${XDG_CACHE_HOME:-~/.cache}/xresconv-cli/bin`）。
-3. 以上都缺失时，从 [GitHub Releases](https://github.com/xresloader/xresconv-cli/releases) 下载最新版本的对应平台制品（校验 sha256 后写入缓存）。
+3. 以上都缺失时，从 [GitHub Releases](https://github.com/owent/xresconv-cli/releases) 下载最新版本的对应平台制品（校验 sha256 后写入缓存）。
 
 Linux x64/arm64 优先使用 musl 静态包，以兼容不同 libc 发行版。下载具有超时与大小限制，校验失败不会覆盖现有缓存；
 安装使用同目录临时文件与原子替换，并发启动不会读到下载了一半的二进制。已缓存版本不会每次联网检查升级。
-Python 3.14 已实测；兼容层保留 Python 2.7 的导入和子进程调用方式，但本轮没有可用的 Python 2.7 解释器做运行验收。
+Python 3.14 已实测；兼容层保留旧入口的调用方式。自动测试使用 Python 3 和本地编译的 Rust 二进制。
 
 与 Python 版的行为差异
 ----------------------
@@ -106,11 +106,11 @@ macOS x64 包在 `macos-latest` 上构建和冒烟。
 发布流程
 --------
 
-推送与 `Cargo.toml` 版本一致的 tag（如 `v2.0.0` 或 `2.0.0`）会触发 [release.yml](.github/workflows/release.yml)。
+推送与 `Cargo.toml` 版本一致的 tag（如 `v2.0.1` 或 `2.0.1`）会触发 [release.yml](.github/workflows/release.yml)。
 流程复用完整构建/测试门禁，检查全部 8 个核心制品及 SHA256，上传完毕后自动公开 Release。
 预发布版本标记 prerelease，不替换 latest；上传失败保留草稿，已公开版本拒绝覆盖。
 常规 push/PR 同样构建并保存跨平台包为 Actions artifacts，扩展平台失败不阻塞核心发布。
-本地可用 `pwsh -NoProfile -File scripts/release.ps1 -Mode Tag -Tag v2.0.0` 检查 tag。
+本地可用 `pwsh -NoProfile -File scripts/release.ps1 -Mode Tag -Tag v2.0.1` 检查 tag。
 
 示例截图
 ------

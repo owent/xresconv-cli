@@ -105,9 +105,9 @@ class LauncherTests(unittest.TestCase):
             self.assertIn("network down", stderr.getvalue())
             self.assertIn(shim.BIN_ENV, stderr.getvalue())
 
-    def release(self, checksum=None, missing=None, url=None):
+    def release(self, checksum=None, missing=None, url=None, owner="xresloader"):
         name = "xresconv-cli-2.0.0-x86_64-unknown-linux-musl.tar.gz"
-        asset_url = "https://github.com/xresloader/xresconv-cli/releases/download/v2.0.0/" + name
+        asset_url = "https://github.com/" + owner + "/xresconv-cli/releases/download/v2.0.0/" + name
         data = b"archive"
         meta = {"tag_name": "v2.0.0", "assets": [
             {"name": name, "browser_download_url": url or asset_url},
@@ -121,15 +121,17 @@ class LauncherTests(unittest.TestCase):
 
     @mock.patch.object(shim, "detect_asset", return_value=("x86_64-unknown-linux-musl", ".tar.gz"))
     def test_release_and_checksum(self, _):
-        with self.release():
-            self.assertEqual(shim.download_latest(), (b"archive", ".tar.gz"))
+        for owner in ("xresloader", "owent"):
+            with self.subTest(owner=owner), self.release(owner=owner):
+                self.assertEqual(shim.download_latest(), (b"archive", ".tar.gz"))
         for checksum in [b"0" * 64, b"", b"invalid", b"g" * 64]:
             with self.subTest(checksum=checksum), self.release(checksum=checksum), self.assertRaises(RuntimeError):
                 shim.download_latest()
 
     @mock.patch.object(shim, "detect_asset", return_value=("x86_64-unknown-linux-musl", ".tar.gz"))
     def test_missing_release_assets_and_foreign_url(self, _):
-        for args in [{"missing": 0}, {"missing": 1}, {"url": "https://example.com/binary"}]:
+        for args in [{"missing": 0}, {"missing": 1}, {"url": "https://example.com/binary"},
+                     {"owner": "owent-evil"}]:
             with self.subTest(args=args), self.release(**args), self.assertRaises(RuntimeError):
                 shim.download_latest()
 

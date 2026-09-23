@@ -23,7 +23,7 @@ Rust 是目标方向；新增资料不扩展被用户排除的技术栈。
 
 | ID | 附件板块或具体要求 | 落点与适用边界 |
 | --- | --- | --- |
-| C01 | 目标：理解、开发、修复、测试、文档、部署、路线图与计划 | [工程流程][engineering]、[Rust Skill][rust]、[Plan][plan]；Rust 实现尚未开始 |
+| C01 | 目标：理解、开发、修复、测试、文档、部署、路线图与计划 | [工程流程][engineering]、[Rust Skill][rust]、[Plan][plan]；Rust 实现已建立 |
 | C02 | 调研和实时更新：范围、索引、版本、冲突、方案、事实变化、收尾 | [工程流程][engineering]；来源含 claim/scope、URL/version、日期/method、installed/status、周期/触发、impact/owner |
 | C03 | 推荐结构与文件选择决策 | [维护流程][maintenance]；最小入口、模块规则、Skill/Agent、兼容/工作流、设计/MCP、强制约束各有位置 |
 | C04 | 跨工具兼容 | [兼容参考][clients] 覆盖附件 13 个客户端；只为实际需要创建配置，不能视为运行验收 |
@@ -56,8 +56,8 @@ Rust 是目标方向；新增资料不扩展被用户排除的技术栈。
 
 - 客户端清单的完整参考不等于安装全套客户端；自定义 Agent/MCP/hooks/可选流程没有实施需求，不创建占位配置。
 - 原附件链接的独立“高性能命令行工具清单”内容未提供；本地已建立可核验清单，不能声称读过或逐项覆盖未知外部内容。
-- 本仓库尚无 Cargo 工程；Rust 命令是未来门禁，不虚构构建、业务测试、后端或生产验收。
-- 新 Skill 的格式、发现与真实效果分开验收；当前状态以 [验证记录][validation] 为准。
+- 本仓库已有 Cargo 工程；构建、业务测试与 CI 结果以 [验证记录][validation] 为准，不将其外推为生产运行验收。
+- 新 Skill 的格式检查与已有发现记录见 [验证记录][validation]；按 2026-09-23 用户要求，规则注入、Skill 发现与真实效果不再作为本轮验收门禁。
 
 [root]: ../../AGENTS.md
 [engineering]: engineering-workflow.md
