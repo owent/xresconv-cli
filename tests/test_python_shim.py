@@ -57,12 +57,9 @@ class LauncherTests(unittest.TestCase):
         cases = [
             ("Windows", "AMD64", "x86_64-pc-windows-msvc", ".zip"),
             ("Windows", "ARM64", "aarch64-pc-windows-msvc", ".zip"),
-            ("Windows", "x86", "i686-pc-windows-msvc", ".zip"),
             ("Linux", "x86_64", "x86_64-unknown-linux-musl", ".tar.gz"),
             ("Linux", "aarch64", "aarch64-unknown-linux-musl", ".tar.gz"),
-            ("Linux", "armv7l", "armv7-unknown-linux-gnueabihf", ".tar.gz"),
             ("Linux", "riscv64", "riscv64gc-unknown-linux-gnu", ".tar.gz"),
-            ("Linux", "loongarch64", "loongarch64-unknown-linux-gnu", ".tar.gz"),
             ("Darwin", "arm64", "aarch64-apple-darwin", ".tar.gz"),
             ("Darwin", "x86_64", "x86_64-apple-darwin", ".tar.gz"),
             ("FreeBSD", "amd64", "x86_64-unknown-freebsd", ".tar.gz"),
@@ -72,15 +69,26 @@ class LauncherTests(unittest.TestCase):
                 self.assertEqual(shim.detect_asset(), (target, ext))
 
     def test_unsupported_platform(self):
-        with mock.patch.object(shim.platform, "machine", return_value="unknown"):
-            self.assertIsNone(shim.detect_asset())
-            with self.assertRaisesRegex(RuntimeError, "no prebuilt binary"):
-                shim.download_latest()
+        for system, machine in (
+            ("Windows", "x86"),
+            ("Linux", "i686"),
+            ("Linux", "armv7l"),
+            ("Linux", "loongarch64"),
+            ("Linux", "unknown"),
+        ):
+            with self.subTest(system=system, machine=machine), mock.patch.object(shim.platform, "system", return_value=system), mock.patch.object(shim.platform, "machine", return_value=machine):
+                self.assertIsNone(shim.detect_asset())
+                with self.assertRaisesRegex(RuntimeError, "no prebuilt binary"):
+                    shim.download_latest()
 
     def test_existing_env_path_wins(self):
         path = self.cache / "local binary 中文"
         path.write_bytes(b"local")
-        with mock.patch.dict(os.environ, {shim.BIN_ENV: str(path)}):
+        with (
+            mock.patch.dict(os.environ, {shim.BIN_ENV: str(path)}),
+            mock.patch.object(shim.platform, "system", return_value="Windows"),
+            mock.patch.object(shim.platform, "machine", return_value="x86"),
+        ):
             self.assertEqual(shim.resolve_binary(), str(path))
 
     def test_missing_env_path_falls_back_to_download_then_cache(self):

@@ -20,12 +20,14 @@ xresconv-cli
 | Windows arm64 | `xresconv-cli-<version>-aarch64-pc-windows-msvc.zip` |
 
 以下扩展平台在发布流水线中尽力构建（失败不阻塞发布，不保证每个版本都有产物）：
-Windows x86、Linux x86/ARMv7/RISC-V 64、Android arm64、FreeBSD x64。
+Linux RISC-V 64、Android arm64、FreeBSD x64。
+Windows/Linux i686、Linux ARM32 和 LoongArch 不提供预编译包；旧 Python 入口仍可通过
+`XRESCONV_CLI_BIN` 转交用户自行提供的可执行文件。
 这些平台仍需能够运行兼容的 Java/xresloader；不提供无独立 CLI/JVM 运行环境的 iOS 包。
 
 解压后将 `xresconv-cli`（Windows 为 `xresconv-cli.exe`）放入 PATH 即可。
 运行转表需要 `java` 可执行程序（在 PATH 中，或配置 `JAVA_HOME`，或用 `-J` 指定）。
-本工具不校验也不绑定 JDK 版本；实际支持的 JDK 范围由后端 xresloader 决定（已用 openjdk 25 + xresloader 2.23.7 完成集成验证）。
+本工具不校验也不绑定 JDK 版本；实际支持的 JDK 范围由后端 xresloader 决定。
 
 也可以从源码构建（需要 Rust 1.88+ 工具链，最新 XML 编码依赖要求此版本）：
 
@@ -93,20 +95,10 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 完整本地测试需要 Python 3 和 PowerShell 7（兼容入口/发布脚本测试），正式二进制不需要它们。
 测试包含 [官方 sample 契约](tests/fixtures/)、测试专用 fake-java、进程取消/大量输出/并发、离线下载与缓存、制品校验。
 Python 入口通过 `XRESCONV_CLI_BIN` 指向本地 Cargo 二进制；不会下载发布版本。
-默认命令明确忽略 5 个需要真实后端的测试，使用以下命令单独验收，环境缺失会报错：
-
-```powershell
-$env:XRESCONV_E2E_JAR = 'D:/workspace/github/xresloader/xresloader/target/xresloader-2.23.7.jar'
-$env:XRESCONV_E2E_SAMPLE_DIR = 'D:/workspace/github/xresloader/xresloader/sample'
-cargo test --workspace --locked --test real_backend -- --ignored --nocapture
-```
-
-真实测试覆盖 proto2/proto3 六种输出格式，并与独立 Java argv 调用逐字节比较。
 fake-java 在测试独立目录内从当前源码构建，过滤测试和覆盖率运行不会复用陈旧替身。
 覆盖率与测试证据见 [验证记录](doc/ai/validation.md)，不将单个平台的覆盖率视为所有平台分支的完整证明。
 
-CI 每次查询 xresloader 最新正式 Release，下载其 JAR 并校验 GitHub 发布资产的 SHA256；
-样本从同一 tag 检出，Git LFS 的 Excel 必须是已下载的工作簿。Java 使用最新 Temurin LTS，
+CI 只测试本仓库的 Rust/Python 入口、仓内 fixture 和 fake-java，不下载其他仓库的 Release/JAR/sample。
 Python 使用最新稳定的 3.x（Python 没有单独的 LTS 发行系列）。
 常规 runner 使用 `*-latest`；Linux/Windows ARM 原生 runner 使用 GitHub 提供的专用标签，
 macOS x64 包在 `macos-latest` 上构建和冒烟。

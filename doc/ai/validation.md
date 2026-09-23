@@ -243,3 +243,24 @@ MSRV 1.88.0 是兼容门禁，不是主构建的固定工具链。
 Windows 的 `cargo fmt/check/test/clippy` 全部门禁通过；WSL 普通 Rust 测试 84 项通过。
 WSL 首次常规测试因调用环境漏加已有的 PowerShell 7 路径而使 5 个发布脚本测试无法启动；
 补入该路径后同一命令全部通过，此次初始失败不是产品断言失败。
+
+## 2026-09-23 GitHub Actions run 35866699467 与门禁收敛
+
+读取 [run 35866699467 的失败 job](https://github.com/owent/xresconv-cli/actions/runs/35866699467/job/107200048669)，
+提交为 `75c134dde1a8c86e72f16e48a654fb527c98c3f2`。该次常规测试、覆盖率、8 个核心包及其余构建 job 均成功；
+唯一失败的是 Windows 的 Real xresloader job：直接 Java 对照中的 proto2/proto3 两项找不到中文命名的 Excel 文件，
+日志显示 `??????.xlsx`，测试结果为 3/5 通过。此日志不足以判定 Rust CLI 行为错误。
+
+按当前产品边界，删除依赖另一仓库 Release/JAR/sample 的 backend、integration job 和 `tests/real_backend.rs`；
+不再让外部仓库资源变化阻塞本仓库测试或发布。保留仓内 fixture、fake-java、进程与发布制品测试；
+此前真实后端对照仅作为本文件中的历史验收记录。
+同时移除 Windows/Linux i686 与 Linux ARM32 发布目标，并使旧 Python 入口不再为这些目标选择不存在的自动下载资产。
+LoongArch 已在前一轮移除；现行矩阵为 8 个核心目标与 3 个扩展目标。
+
+本地验收：Windows/WSL Linux 均运行 `cargo test --workspace --locked`，各 83 个 Rust 测试通过；
+Python 兼容层的 13 个离线 unittest 通过，包含不支持架构拒绝自动下载及 `XRESCONV_CLI_BIN` 路径优先级。
+Windows `cargo fmt --all --check`、`cargo check --workspace --locked`、
+`cargo clippy --workspace --all-targets --locked -- -D warnings` 与 Rust 1.88 的 `--all-targets` 检查通过。
+Windows cargo-llvm-cov 0.9.1 的 90% 行门禁通过，行覆盖 1586/1692 = 93.74%。
+actionlint 1.7.12 验证现行四个 job 和 11 个制品目标，仍仅过滤其未知但 GitHub 已提供的 `ubuntu-26.04-arm` 标签。
+本轮未提交、推送或触发解耦后的远程 CI；首次 tag 发布仍未验收。

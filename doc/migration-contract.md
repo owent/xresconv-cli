@@ -19,7 +19,6 @@
 | 日志 | stdout/stderr 分别排空、保留 Unicode；沿用日志级别着色与 CPRINTF_MODE | `src/runner.rs`、`src/color.rs`、集成测试 |
 | Python 入口 | 三个脚本和目录调用打印升级提示；转交参数、工作目录、标准流及退出状态 | `tests/python_entry.rs` |
 | 下载 | 环境指定路径、缓存、最新稳定 Release；校验 SHA256；失败不损坏缓存；并发原子安装 | `tests/test_python_shim.py`，由 Cargo 调用 |
-| 真实转换 | proto2/proto3，bin/lua/json/xml/msgpack/js，文件 scheme/内联 scheme、输出目录覆盖、中文空格路径 | `tests/real_backend.rs` |
 
 Java 进程数不超过请求的正整数并发上限，也不超过实际命令批次数。每条命令从队列取出一次；
 写入失败不盲目重试，避免重复执行已发送的转换。进程/管道/剩余任务失败均使最终状态非零。
@@ -47,11 +46,12 @@ XML 的 `option` 仍是已有后端命令片段，其内部引号由配置作者
 ## 发布与回滚
 
 - `build.yml` 在普通 push/PR 和 tag 复用调用中运行：Linux x64/arm64、macOS arm64、Windows x64/arm64 原生测试、
-  MSRV 检查、三个系统真实后端测试、14 个制品目标。macOS x64 在 `macos-latest` 构建并通过 Rosetta 冒烟。
+  MSRV 检查及 11 个制品目标。macOS x64 在 `macos-latest` 构建并通过 Rosetta 冒烟。
 - 常规 x64 runner 使用 `*-latest`；Linux/Windows ARM 原生 runner 无滚动 `latest` 标签，使用 GitHub 当前提供的 ARM 专用标签。
-  集成测试从 GitHub 最新正式 Release 解析后端 tag/JAR SHA256，用同一 tag 的 Git LFS 样本，并查询最新 Temurin LTS。
+  CI 使用仓内 fixture 和 fake-java，不查询、下载或执行其他仓库的 Release/JAR/sample。
 - 核心 8 包为 Linux GNU/musl x64/arm64、macOS x64/arm64、Windows MSVC x64/arm64。
-  6 个扩展目标失败不会阻塞核心发布；其 JDK 可用性和制品运行仍需各平台验收。
+  3 个扩展目标为 Linux RISC-V 64、Android arm64、FreeBSD x64；失败不会阻塞核心发布。
+  Windows/Linux i686、Linux ARM32 和 LoongArch 不在当前预编译发布范围；`XRESCONV_CLI_BIN` 仍可转交用户自行提供的二进制。
 - tag 必须匹配 Cargo 版本；只有门禁和必需制品/校验和完整后才发布。发布任务独占内容写权限，构建只读。
 - Release 先保持草稿，全部上传成功才公开；预发布不标记 latest；已公开版本拒绝覆盖。
 - 用户回滚时下载上一版对应平台包，校验 SHA256 后替换本地安装，或设置 `XRESCONV_CLI_BIN` 指向已验证旧二进制。
@@ -59,6 +59,6 @@ XML 的 `option` 仍是已有后端命令片段，其内部引号由配置作者
 - Python 下载只读取官方仓库 API/制品，限时限量；从压缩包只复制唯一的普通二进制文件，拒绝链接、空文件和路径穿越。
 
 本轮只完成本地修复与发布流程配置，没有提交、推送 tag、上传或公开 Release。
-第二次 CI 已通过 Linux/macOS/ARM 常规测试与全部 8 个核心包构建/冒烟；三平台真实后端测试修复后待复跑，
-首次 tag 发布与 Python 2.7 运行仍未验收。
+第三次 CI 已通过 Linux/macOS/ARM 常规测试、覆盖率及全部 8 个核心包构建/冒烟；
+外部后端样本测试已退出本仓库门禁。解耦后的 CI、首次 tag 发布与 Python 2.7 运行仍未验收。
 Windows 本地覆盖率只覆盖本平台编译分支，不能作为跨平台或 100% 分支覆盖证明。

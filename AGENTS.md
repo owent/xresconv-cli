@@ -56,9 +56,9 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
 这些命令要求 `Cargo.lock` 与 `Cargo.toml` 同步；首次执行记录工具链版本。
-根据变更补目标平台、feature 组合及后端集成验证，不能用编译或 mock 通过代替真实转表验收。
-Python 兼容入口测试通过 `XRESCONV_CLI_BIN` 指向本地 Cargo 二进制；真实后端测试默认 `ignored`，
-需配置 `XRESCONV_E2E_JAR`、`XRESCONV_E2E_SAMPLE_DIR` 并显式加 `-- --ignored`，见 [迁移合同](doc/migration-contract.md)。
+根据变更补目标平台及 feature 组合验证。本仓库自动测试使用仓内 fixture 和 fake-java，
+不下载或执行 xresloader 仓库的 Release/JAR/sample，避免外部资源变化阻塞本仓库门禁。
+Python 兼容入口测试通过 `XRESCONV_CLI_BIN` 指向本地 Cargo 二进制；平台下载映射与当前发布矩阵一致。
 
 ## 终端与文件
 

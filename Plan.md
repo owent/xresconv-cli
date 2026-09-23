@@ -5,14 +5,16 @@
 2026-09-23：完成当前暂存 Rust 迁移的源码审查与修复，保留原暂存区。
 行为基线为 `656c7e3d44efee978334e0364eb7de0fe3c8778c`；合同与测试映射见 [迁移合同](doc/migration-contract.md)。
 单 Cargo package、edition 2024、MSRV 1.88；依赖按官方注册表核验，Cargo.toml 使用显式 `^` 兼容范围，Cargo.lock 锁定构建版本。
-CLI 不绑定 JDK；本机真实验收使用 OpenJDK 25.0.4.1 + xresloader 2.23.7。
+CLI 不绑定 JDK；历史本机真实验收使用 OpenJDK 25.0.4.1 + xresloader 2.23.7，见验证记录。
 
 本地常规测试、真实后端对照和最低工具链检查已执行；最终数量与覆盖率见 [验证记录](doc/ai/validation.md)。
-发布配置包含 8 个核心包、6 个扩展包，tag 通过门禁后自动公开 Release。
+发布配置包含 8 个核心包、3 个扩展包，tag 通过门禁后自动公开 Release。
 [首次 CI run](https://github.com/owent/xresconv-cli/actions/runs/35853777700) 暴露了跨平台打包清理、LFS 样本和 musl 冒烟问题；
 已按实际日志修复。[第二次 CI run](https://github.com/owent/xresconv-cli/actions/runs/35861863204)
-确认全部 8 个核心包、常规测试和覆盖率通过；真实后端的时区/LFS 问题已复现并修复，待远程复跑。
+确认全部 8 个核心包、常规测试和覆盖率通过。
 当前 CI 的 LoongArch 交叉构建调用了 x64 链接器；缺少已验证的构建环境，该非必需目标已从矩阵移除。
+[第三次 CI run](https://github.com/owent/xresconv-cli/actions/runs/35866699467) 的唯一失败 job 仍来自外部后端样本；
+按当前范围删除跨仓库集成门禁及 Windows/Linux 32 位目标，后续 CI 只验证本仓库可控资源。
 首次 tag 发布下载与 Python 2.7 运行尚未验收。
 本轮未提交、推送、打 tag 或发布。
 
@@ -51,22 +53,21 @@ CLI 不绑定 JDK；本机真实验收使用 OpenJDK 25.0.4.1 + xresloader 2.23.
 - [x] 覆盖 CLI、include/合并/默认 scheme、输出矩阵、引用/Unicode、路径与颜色环境。
 - [x] 覆盖并发 1/2/4/100 的无重复遗漏、启动失败、提前退出、大量输出、取消及后代回收。
 - [x] Python 三脚本/目录入口均用环境变量转交本地二进制；下载/校验/缓存/异常离线测试。
-- [x] 固定 JAR + sample，proto2/proto3 六种格式、两个输入方案共 24 个产物与直接 Java argv 调用逐字节一致。
-- [x] 真实后端测试显式 ignored，缺少环境时不能伪装为通过；CI 用 `-- --ignored` 执行。
+- [x] 历史固定 JAR + sample 的对照证据保留在验证记录；现行自动测试不依赖外部仓库资源。
 - [x] 建立 LLVM 覆盖率与 CI 90% 行覆盖门禁；平台分支和无法稳定注入的系统失败路径单列限制。
 - [x] 第二次 CI 已实际运行 Linux/macOS/ARM 常规测试及 8 个核心目标的构建和冒烟。
-- [ ] 修复后的三平台真实后端集成测试待远程复跑。
 
 ### P4：发布与替换
 
 - [x] 常规 push/PR 保存预编译 artifacts；tag 复用完整门禁。
 - [x] 版本与 tag 一致性、8 个核心制品完整性、SHA256 与 ZIP/TAR 打包消费测试。
 - [x] 发布任务独占写权限，Actions 使用官方当前大版本标签；上传成功后公开，预发布不替换 latest。
-- [x] CI 动态查询 xresloader 最新正式 Release、同 tag 样本与资产 SHA256，拉取并验证 Git LFS Excel；Java 查询最新 Temurin LTS，Python 使用最新稳定 3.x。
+- [x] CI 只使用仓内 fixture/fake-java；不查询 xresloader Release/JAR/sample。Python 使用最新稳定 3.x。
+- [x] 发布目标移除 Windows/Linux i686 与 Linux ARM32；Python 自动下载映射同步，不承诺未构建的架构。
 - [x] 修复跨平台 PowerShell 隐藏暂存目录清理；Unix 冒烟改用 Bash。LoongArch 因当前交叉链接配置不可用而移除。
 - [x] 环境路径缺失继续缓存/下载；原子安装、有限网络等待、失败不损坏旧缓存。
 - [x] README、历史记录、工程指引、Rust Skill、来源与验证记录同步。
-- [ ] 修复后的 GitHub CI 真实后端复跑、首次 tag 流程与全部平台解压/运行验收，扩展目标为尽力构建。
+- [ ] 解耦后的 GitHub CI 复跑、首次 tag 流程与全部目标解压/运行验收，扩展目标为尽力构建。
 - [ ] Python 2.7 运行验收：兼容写法保留，当前机器只有 Python 3。
 
 ## 交接

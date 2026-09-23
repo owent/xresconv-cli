@@ -42,13 +42,13 @@ git grep -n -e load_xml_file -e load_global_options -e load_list_item_nodes -e w
 | R2 | rustfmt 支持检查模式；Clippy 支持 Cargo 工程与 lint 级别设置 | [rustfmt][rustfmt]、[Clippy][clippy] / rolling | 官方正文和本机帮助已核验；门禁 fmt/clippy -D warnings 已执行通过 | Cargo 门禁 |
 | X1 | xresconv-conf 提供转换列表规范及 include 示例 | [xresconv-conf][conf] / `dab714ae4ca6a0dc8af5410087ce90e2dfbe687c` | GitHub API 固定 main 快照；fixture 合同测试 | 迁移合同 |
 | R3 | clap 4.6.7、roxmltree 0.21.1、regex 1.13.1、windows-sys 0.61.2、tempfile 3.27.0；新增 ctrlc 3.5.2、encoding_rs 0.8.41、libc 0.2.189 | [crates.io API][crates-io] / 2026-09-23 max_stable_version | 最新稳定版已查询；Cargo 更新锁文件，encoding_rs 的 MSRV 1.88 已实测 | Cargo.toml/Cargo.lock |
-| X2 | xresloader v2.23.7 release 资产含 `xresloader-2.23.7.jar`，SHA256 见验证记录；样本 Excel 由 Git LFS 管理 | GitHub API / v2.23.7，仓库 `.gitattributes` | 本机包与官方包各跑 5 个真实测试；run 35853777700 的 LFS 指针失败已定位 | 本地 E2E 基线；CI 改为解析最新 Release |
-| CI1 | checkout v7、upload-artifact v7、download-artifact v8、setup-python v7、setup-java v6、stale v11 | [checkout][checkout-action]、[Python setup][setup-python]、[Java setup][setup-java] | 用户要求随大版本接收更新；源码内 uses 不再钉 SHA，版本策略需在每次 CI 验收 | .github/workflows |
+| X2 | xresloader v2.23.7 release 资产含 `xresloader-2.23.7.jar`，SHA256 见验证记录；样本 Excel 由 Git LFS 管理 | GitHub API / v2.23.7，仓库 `.gitattributes` | 历史本机真实后端验收；第三次 CI 证明外部样本测试不稳定，现已退出门禁 | 历史证据；不作为 CI 资源 |
+| CI1 | checkout v7、upload-artifact v7、download-artifact v8、setup-python v7、stale v11 | [checkout][checkout-action]、[Python setup][setup-python] | 用户要求随大版本接收更新；现行 workflow 已移除 setup-java 和外部后端 job | .github/workflows |
 | CI2 | `ubuntu-latest`/`macos-latest`/`windows-latest` 为滚动标签；ARM 原生 runner 仍需架构专用标签 | [官方 runner 表][runners]、[镜像标签][runner-images] / rolling | GitHub 文档核验；第二次 CI 的 macOS Intel 交叉包与 Rosetta 冒烟通过 | build.yml 矩阵 |
-| X3 | 本地 2.23.7 后端 stdin 不支持反斜杠转义 | [Main.java][backend-parser] / `7263367d99f04af8fca8b1fd80cac29b05f2f6b0` | 本地源码逐行核对 + 真实 JAR 24 产物对照；CI 最新版仍须每次验证 | 参数编码与 CI 最新版行为风险 |
-| CI4 | setup-python 的 `3.x` 取最新稳定 Python 3；Python 无单独 LTS 系列；Adoptium API 有 `most_recent_lts` | [Python setup][setup-python]、[Python 版本状态][python-versions]、[Adoptium API][adoptium-api] | 官方文档与实时 API 核验；CI 动态解析 Temurin LTS | build.yml 环境选择 |
-| CI5 | GitHub Release API 资产提供 `digest`；LFS 支持跳过检出时下载并按路径物化 | [Release API][release-api]、[Git LFS pull][lfs-pull]、[Git LFS 配置][lfs-config] | 第二次 CI 的 Windows 检出因无关 benchmark LFS 大文件失败；本机 Windows 仅下载所需 Excel 后 OOXML 文件头通过 | 最新 JAR 与样本一致性 |
-| CI3 | Linux、macOS、Windows 的 x64/arm64 原生 runner 标签 | [官方 runner 表][runners] / 2026-09-23 | 第二次 CI 普通测试和 8 个核心包构建/冒烟通过；三平台真实后端测试待修复后复跑 | build.yml 核心测试矩阵 |
+| X3 | 本地 2.23.7 后端 stdin 不支持反斜杠转义 | [Main.java][backend-parser] / `7263367d99f04af8fca8b1fd80cac29b05f2f6b0` | 历史本地源码核对与 JAR 产物对照；现行 CI 只验证本仓库的 stdin 编码合同 | 参数编码与外部运行边界 |
+| CI4 | setup-python 的 `3.x` 取最新稳定 Python 3；Python 无单独 LTS 系列 | [Python setup][setup-python]、[Python 版本状态][python-versions] | 官方文档核验；外部 Java LTS 动态查询已从 CI 移除 | build.yml 环境选择 |
+| CI5 | GitHub Release 资产 digest 与 Git LFS 按路径物化曾用于跨仓库集成 job | [Release API][release-api]、[Git LFS pull][lfs-pull]、[Git LFS 配置][lfs-config] | 历史故障见验证记录；当前 CI 不下载 xresloader 资产 | 历史 CI 故障依据 |
+| CI3 | Linux、macOS、Windows 的 x64/arm64 原生 runner 标签 | [官方 runner 表][runners] / 2026-09-23 | 第三次 CI 普通测试、覆盖率和 8 个核心包构建/冒烟通过；外部后端 job 已移除 | build.yml 核心测试矩阵 |
 | T4 | cargo-llvm-cov 0.9.1 / actionlint 1.7.12 | [覆盖率工具][llvm-cov]、[actionlint][actionlint] | crates.io / GitHub API 核验；本机运行，actionlint ZIP 校验官方 asset digest | 覆盖率与 CI 静态检查 |
 
 Cargo.toml 使用显式 `^` 兼容更新范围；Cargo.lock 固定已验证的实际版本。
@@ -117,10 +117,8 @@ Codex 与 Kilo 共用根规则和 `.agents/skills/`，目前不需要复制文�
 [actionlint]: https://github.com/rhysd/actionlint/releases/tag/v1.7.12
 [checkout-action]: https://github.com/actions/checkout/blob/main/README.md
 [setup-python]: https://github.com/actions/setup-python/blob/main/docs/advanced-usage.md
-[setup-java]: https://github.com/actions/setup-java/blob/main/README.md
 [runner-images]: https://github.com/actions/runner-images/blob/main/README.md
 [python-versions]: https://devguide.python.org/versions/
-[adoptium-api]: https://github.com/adoptium/api.adoptium.net/blob/main/docs/cookbook.adoc
 [release-api]: https://docs.github.com/en/rest/releases/releases
 [lfs-pull]: https://github.com/git-lfs/git-lfs/blob/main/docs/man/git-lfs-pull.adoc
 [lfs-config]: https://github.com/git-lfs/git-lfs/blob/main/docs/man/git-lfs-config.adoc

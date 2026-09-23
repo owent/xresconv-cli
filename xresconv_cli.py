@@ -60,25 +60,20 @@ def detect_asset():
         "amd64": "x86_64",
         "arm64": "aarch64",
         "aarch64": "aarch64",
-        "i386": "i686",
-        "i686": "i686",
-        "x86": "i686",
-        "armv7l": "armv7",
         "riscv64": "riscv64gc",
-        "loongarch64": "loongarch64",
     }.get(platform.machine().lower())
     if not arch:
         return None
-    if system == "windows" and arch in ("x86_64", "aarch64", "i686"):
+    if system == "windows" and arch in ("x86_64", "aarch64"):
         return arch + "-pc-windows-msvc", ".zip"
     if system == "linux":
         if hasattr(sys, "getandroidapilevel"):
             return ("aarch64-linux-android", ".tar.gz") if arch == "aarch64" else None
         if arch in ("x86_64", "aarch64"):
             return arch + "-unknown-linux-musl", ".tar.gz"
-        if arch == "armv7":
-            return "armv7-unknown-linux-gnueabihf", ".tar.gz"
-        return arch + "-unknown-linux-gnu", ".tar.gz"
+        if arch == "riscv64gc":
+            return "riscv64gc-unknown-linux-gnu", ".tar.gz"
+        return None
     if system == "darwin" and arch in ("x86_64", "aarch64"):
         return arch + "-apple-darwin", ".tar.gz"
     if system == "freebsd" and arch == "x86_64":
