@@ -1,0 +1,18 @@
+{
+  "config": {
+    "default": true,
+    "MD013": {
+      "line_length": 160,
+      "tables": false
+    }
+  },
+  "globs": [
+    "AGENTS.md",
+    "Plan.md",
+    ".agents/skills/**/*.md",
+    "doc/ai/**/*.md"
+  ],
+  "ignores": [
+    ".kilo/**"
+  ]
+}
