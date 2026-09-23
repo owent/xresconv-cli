@@ -10,11 +10,12 @@
 ## 本地基线
 
 - `source_version`：`656c7e3d44efee978334e0364eb7de0fe3c8778c`；`method`：Git、文件清单及源码静态阅读。
-- 起始 `git status --short` 无输出；无上级或仓库级 AGENTS 规则，无已有 Skills/Plan，也无 Cargo 工程、测试目录或 CI。
+- 指引初始化阶段的 `git status --short` 无输出；当时无上级或仓库级 AGENTS 规则。
+  2026-09-23 更新：Rust 2.0.0 工程已建立（根 `Cargo.toml`/`Cargo.lock`、`src/`、`tests/`、`.github/workflows/`），门禁全绿。
 - `README.md` 定义项目为 xresconv-conf 转换列表 CLI，xresloader 是导出后端。
   `HISTORY.md` 的 1.4.5 记录多输出矩阵，1.4.3 记录后端出错仍返回成功的历史缺陷。
-- 现有实现的 `load_xml_file` 递归处理 include；`load_global_options` 和 `load_list_item_nodes` 处理合并与筛选；
-  `worker_func` 启动 Java `--stdin` 批处理并汇总退出状态。上述是源码证据，尚未重放兼容样本。
+- 历史 Python 的 `load_xml_file` 递归处理 include；`load_global_options` 和 `load_list_item_nodes` 处理合并与筛选；
+  `worker_func` 启动 Java `--stdin` 批处理并汇总退出状态。本轮已重放 6 组差分预览及真实后端样本。
 - include 相对其所在文件解析；工作目录以主列表目录为起点再应用 `work_dir`。
   Java 启动参数与逐行 stdin 命令分开构造。Rust 实现必须先确定相应合同，而非照搬实现细节。
 - 可用下列只读定位命令复查原始证据；本页不复制旧实现内容。
@@ -37,9 +38,20 @@ git grep -n -e load_xml_file -e load_global_options -e load_list_item_nodes -e w
 | C1 | Codex 项目规则按根到 cwd 构建，每层优先 AGENTS.override.md，再 AGENTS.md | [Codex 规则][codex-rules] / rolling | 文档已核验；新规则启动加载未验证 | 共享根入口 |
 | C2 | Codex 从 cwd 向仓库根发现 .agents/skills；同名不会合并 | [Codex Skills][codex-skills] / rolling | 文档已核验；本轮 catalog 已列出最初两个 Skill，完整路由对照未验证 | Skills 权威位置 |
 | K1 | Kilo 支持根 AGENTS.md，CLI 支持 .agents/skills；禁用外部 Skills 会影响发现 | [Kilo 规则][kilo-rules]、[Skills][kilo-skills] / rolling | 文档已核验；CLI 根/子目录 Skill 发现通过，规则注入未验证 | 不复制专属规则 |
-| R1 | Cargo test 默认执行单元、集成和适用的文档测试；--no-run 只编译 | [cargo test][cargo-test] / rolling | 文档已核验；无工程，项目运行未验证 | Rust 验证流程 |
-| R2 | rustfmt 支持检查模式；Clippy 支持 Cargo 工程与 lint 级别设置 | [rustfmt][rustfmt]、[Clippy][clippy] / rolling | 官方正文和本机帮助已核验；项目门禁未执行 | 未来 Cargo 命令 |
-| X1 | xresconv-conf 提供转换列表规范及 include 示例 | [xresconv-conf][conf] / main，未固定提交 | 仅核验仓库概览；完整样本合同留待 P1 | 迁移合同 |
+| R1 | Cargo test 默认执行单元、集成和适用的文档测试；--no-run 只编译 | [cargo test][cargo-test] / rolling | 文档已核验；项目门禁已实际执行（2026-09-23，cargo 1.98.0） | Rust 验证流程 |
+| R2 | rustfmt 支持检查模式；Clippy 支持 Cargo 工程与 lint 级别设置 | [rustfmt][rustfmt]、[Clippy][clippy] / rolling | 官方正文和本机帮助已核验；门禁 fmt/clippy -D warnings 已执行通过 | Cargo 门禁 |
+| X1 | xresconv-conf 提供转换列表规范及 include 示例 | [xresconv-conf][conf] / `dab714ae4ca6a0dc8af5410087ce90e2dfbe687c` | GitHub API 固定 main 快照；fixture 合同测试 | 迁移合同 |
+| R3 | clap 4.6.7、roxmltree 0.21.1、regex 1.13.1、windows-sys 0.61.2、tempfile 3.27.0；新增 ctrlc 3.5.2、encoding_rs 0.8.41、libc 0.2.189 | [crates.io API][crates-io] / 2026-09-23 max_stable_version | 最新稳定版已查询；Cargo 更新锁文件，encoding_rs 的 MSRV 1.88 已实测 | Cargo.toml/Cargo.lock |
+| X2 | xresloader v2.23.7 release 资产含 `xresloader-2.23.7.jar`；`sample/proto_v3/kind.pb` 已随仓库提交 | GitHub API / v2.23.7 | 2026-09-23 API 核验 + 本机 jar/sample 实测通过 | CI 集成 job 与本机 E2E 依据 |
+| CI1 | checkout 7.0.1、upload-artifact 7.0.1、download-artifact 8.0.1、setup-python 7.0.0、setup-java 6.0.1、stale 11.0.0 | 各官方仓库 GitHub API releases/latest + git/ref/tags | 2026-09-23 核验提交类型/SHA；完整 SHA 位于 workflows | .github/workflows |
+| CI2 | ubuntu-latest 预装 Android NDK（`ANDROID_NDK_LATEST_HOME`）与 docker；ubuntu-24.04-arm 为原生 ARM runner | GitHub runner images 文档 / rolling | 文档核验；首次 tag 构建实跑确认 | build.yml 扩展平台 |
+| X3 | 固定后端 stdin 不支持反斜杠转义 | [Main.java][backend-parser] / `7263367d99f04af8fca8b1fd80cac29b05f2f6b0`（v2.23.7 peeled commit） | 本地源码逐行核对 + 真实 JAR 24 产物对照 | 参数编码与 CI sample 固定 |
+| CI3 | Linux、macOS、Windows 的 x64/arm64 原生 runner 标签 | [官方 runner 表][runners] / 2026-09-23 | 官方正文核验；远程执行待首次 CI | build.yml 核心测试矩阵 |
+| T4 | cargo-llvm-cov 0.9.1 / actionlint 1.7.12 | [覆盖率工具][llvm-cov]、[actionlint][actionlint] | crates.io / GitHub API 核验；本机运行，actionlint ZIP 校验官方 asset digest | 覆盖率与 CI 静态检查 |
+
+Cargo.toml 使用显式 `^` 兼容更新范围；Cargo.lock 固定已验证的实际版本。
+两个官方 XML fixture 仅规范换行和行末空白，配置内容保持上述固定提交版本。
+JAR 校验与运行记录见 [验证记录](validation.md)：用户本机包与官方 Release 包的 SHA256 不同，分别实测，不混称同一文件。
 
 ## 安装与兼容范围
 
@@ -50,7 +62,7 @@ git grep -n -e load_xml_file -e load_global_options -e load_list_item_nodes -e w
 | Codex CLI | `0.155.0-alpha.16`，`codex --version` | 本会话客户端；新文件的独立启动加载尚未验收 |
 | Kilo Code CLI | `7.4.21`，`kilo --version` | 两处 cwd 的 Skill 发现已验证；团队使用清单待确认 |
 | PowerShell | `7.6.6`，`$PSVersionTable.PSVersion` | 本次实际 shell |
-| Rust / Cargo | `1.98.0`，`rustc --version` / `cargo --version` | 已安装，不代表项目已选定工具链或最低版本 |
+| Rust / Cargo | `1.98.0`，`rustc --version` / `cargo --version` | 本地常规工具链；项目 MSRV 1.88.0 已额外安装并实测 |
 | Rustup | `stable-x86_64-pc-windows-msvc`，`rustup show active-toolchain` | 本机默认工具链，无项目固定配置 |
 | Node.js | `24.21.0`，`node --version` | 仅用于复用已有文档校验工具，不是 CLI 产品依赖 |
 | markdownlint-cli2 | `0.23.2`，已有安装的 package.json | 不在 PATH；从相邻工作区已安装目录调用 CLI，未安装依赖 |
@@ -96,6 +108,11 @@ Codex 与 Kilo 共用根规则和 `.agents/skills/`，目前不需要复制文�
 [rustfmt]: https://github.com/rust-lang/rustfmt
 [clippy]: https://doc.rust-lang.org/stable/clippy/usage.html
 [conf]: https://github.com/xresloader/xresconv-conf
+[crates-io]: https://crates.io/api/v1/crates
+[backend-parser]: https://github.com/xresloader/xresloader/blob/7263367d99f04af8fca8b1fd80cac29b05f2f6b0/src/org/xresloader/core/Main.java
+[runners]: https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+[llvm-cov]: https://github.com/taiki-e/cargo-llvm-cov
+[actionlint]: https://github.com/rhysd/actionlint/releases/tag/v1.7.12
 [ps-ref]: ../../.agents/skills/terminal-tooling/references/powershell.md
 [tools-ref]: ../../.agents/skills/terminal-tooling/references/modern-cli-tools.md
 [clients-ref]: ../../.agents/skills/ai-guidance-maintenance/references/client-compatibility.md

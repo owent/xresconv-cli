@@ -4,4 +4,4 @@
 if __name__ == "__main__":
     from xresconv_cli import main
 
-    main()
+    exit(main())

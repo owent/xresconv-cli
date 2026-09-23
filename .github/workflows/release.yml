@@ -1,0 +1,71 @@
+name: release
+
+on:
+  push:
+    tags: ['*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tag must match Cargo version
+        shell: pwsh
+        run: ./scripts/release.ps1 -Mode Tag
+
+  checks-and-build:
+    needs: validate
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    needs: checks-and-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: binary-*
+          path: dist
+          merge-multiple: true
+      - name: Verify complete release
+        shell: pwsh
+        run: ./scripts/release.ps1 -Mode Verify
+      - name: Upload and publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:RELEASE_TAG
+          $existing = gh release view $tag --json isDraft
+          $viewExit = $LASTEXITCODE
+          if ($viewExit -eq 0) {
+            if (-not ($existing | ConvertFrom-Json).isDraft) { throw 'Release already published; refusing to overwrite it' }
+          } else {
+            gh release create $tag --verify-tag --draft --title $tag --generate-notes
+            if ($LASTEXITCODE -ne 0) { throw 'Could not create release draft' }
+          }
+          $assets = @(Get-ChildItem -LiteralPath dist -File | ForEach-Object { $_.FullName })
+          gh release upload $tag @assets --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Asset upload failed; release remains a draft' }
+          $prerelease = if ($tag.Contains('-')) { 'true' } else { 'false' }
+          $latest = if ($prerelease -eq 'true') { 'false' } else { 'true' }
+          gh release edit $tag --draft=false "--prerelease=$prerelease" "--latest=$latest"
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing failed; inspect the release before retrying' }

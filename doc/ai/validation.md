@@ -2,7 +2,7 @@
 
 ## 文档检查
 
-执行目录：仓库根。检查范围：`AGENTS.md`、`Plan.md`、`.agents/skills/**/*.md`、`doc/ai/**/*.md`。
+执行目录：仓库根。检查范围：`AGENTS.md`、`Plan.md`、`doc/migration-contract.md`、`.agents/skills/**/*.md`、`doc/ai/**/*.md`。
 配置见 [.markdownlint-cli2.jsonc](../../.markdownlint-cli2.jsonc)：启用默认规则，行长 160，表格不检查行长。
 该例外避免为了长路径和来源 URL 破坏表格；其余规则不全局关闭。
 
@@ -76,6 +76,16 @@ Skills 使用 YAML 解析器检查 frontmatter，核对 name/description 长度�
 三次、0.5 判定线或 60/40 划分不是统一门槛；预先规定判定方式，重要流程使用确定性断言，必要时人工盲评。
 按原因分析误触发/漏触发，调优后在未参与调整的留出样本上复核；只改排版不强制重做完整模型评估。
 
+## 2026-09-23 Rust 2.0.0 与全客户端入口记录
+
+- Rust 工程门禁在仓库根实际执行：fmt/check/test/clippy（`--locked`）退出码均 0；44 个测试通过（26 单测 + 12 集成 + 6 样本契约）。
+- 真实后端验收：xresloader 2.23.7（本机 jar）+ 官方 sample，`tests/real_backend.rs` 通过；`role_cfg.lua`/`arr_in_arr_cfg.lua`
+  与 sample 参考产物做数据内容级比对一致（忽略缩进与 xres_ver 差异）。java 为本机 openjdk 25，CLI 本身不绑定 JDK 版本。
+- 客户端入口决策落地：全部目标客户端原生读取根 `AGENTS.md` 与 `.agents/skills/`（官方文档核验，见兼容参考）；
+  Claude Code 增加根 `CLAUDE.md`，内容为 `@AGENTS.md` 单一导入。Antigravity 的 `.agents/rules`、其他客户端专属目录未建副本，避免重复事实源。
+- 各客户端规则注入、Skill 自动触发与权限拒绝的真实运行验收仍未逐客户端执行；文件存在不等于加载成功。
+- `git diff --check` 退出码 0；markdownlint-cli2 不在 PATH，本轮未执行 markdown lint（沿用既有安装目录的调用方式未重试）。
+
 ## 2026-09-23 首轮初始化记录
 
 - 主工作区起始干净；Rust 工程、业务测试、发布及其他客户端验收均未执行。
@@ -106,3 +116,65 @@ Skills 使用 YAML 解析器检查 frontmatter，核对 name/description 长度�
 - 最后检查时资料已被暂存，HEAD 未变；保留暂存状态，后续修订留在工作区，未执行 add/reset/commit。
   Git 检查分别覆盖已暂存和工作区差异；本轮仅修改工程指引，没有业务源码、Cargo 工程、安装或发布变更。
 - 基础设施启动失败和一次性 PowerShell 探测脚本的管道语法错误分别处理；修正语法后完成实际检查，不算项目测试失败。
+
+## 2026-09-23 Rust 迁移审查修复与最终验收
+
+本轮从已有暂存迁移继续；保留原暂存区，修改留在工作区，未提交、推送、打 tag 或发布。
+上面的 44 个测试和早期后端记录是历史快照，以下为本轮实际执行结果。
+初始测试中真实后端用环境缺失提前返回，被误计为通过；现已显式标记 ignored，并单独执行验收。
+
+### 环境与常规门禁
+
+- 目录：`D:/workspace/github/xresloader/xresconv-cli`；Windows x64，PowerShell 7.6.6、Rust/Cargo 1.98.0、
+  Python 3.14.7、OpenJDK 25.0.4.1；另用 Rust 1.88.0 验证 MSRV。
+- Cargo.toml 所有依赖使用显式 `^` 兼容范围；官方注册表当前稳定版本已核验，Cargo.lock 锁定实际构建版本。
+- `cargo fmt --all --check`、`cargo check --workspace --locked`、`cargo test --workspace --locked`、
+  `cargo clippy --workspace --all-targets --locked -- -D warnings` 全部退出 0。
+- 常规实际执行 83 个 Rust 测试：32 模块单测、18 CLI、5 Python 入口、17 回归、5 发布制品、6 官方样本合同。
+  Python 入口测试中另执行 13 个 Python unittest（含平台/异常子场景）；全部通过，网络使用离线替身。
+  5 个真实后端测试在常规运行中明确 ignored，不计入上述 83 个。
+- `cargo +1.88.0 check --workspace --all-targets --locked` 退出 0；这里 all-targets 指本机 Cargo 测试/示例等目标，
+  不表示所有 OS/架构的最低工具链实测。
+- 稳定工具链分别执行 `cargo check --workspace --all-targets --locked --target <triple>`，7 个非本机核心 target 全部通过：
+  Linux x64/arm64 的 GNU 与 musl、macOS x64/arm64、Windows arm64。
+  此项只证明交叉编译检查，不证明链接、平台运行或远程 runner 可用性。
+
+### 真实行为与后端
+
+- 首先重现 4 个失败回归，再修复空 file/scheme、重复局部 scheme 空白、无效并发、重复 JVM 参数。
+  历史 Python 基线与当前 Rust 的 6 组预览命令流逐项一致。
+- `XRESCONV_E2E_JAR` 指向用户提供的 `D:/workspace/github/xresloader/xresloader/target/xresloader-2.23.7.jar`；
+  `XRESCONV_E2E_SAMPLE_DIR` 指向同仓库 sample，显式执行 `cargo test --workspace --locked --test real_backend -- --ignored`。
+  用户 JAR 的 SHA256 为 `e6e75293f52cdbfef40c042c2077376ca1abca67842c6ff4fa0f5c25bc2e2829`。
+- 同时下载并校验官方 v2.23.7 Release JAR，SHA256 为
+  `1cd8cfe7415adf46eb4b43376b07841d7fca8324b4bac2e0c7248feabeb11503`，用相同 5 个测试再次通过。
+  两个包都报告 2.23.7，哈希不同；CI 固定官方包及其哈希，不混用本机包的校验值。
+- 每组 5 个测试覆盖：sample 参考 Lua、JAR 缺失、真实后端失败、proto2 与 proto3 的六种格式。
+  两个协议版本 × 六种格式 × 文件/内联 scheme，共 24 个产物分别与独立直接 Java argv 调用逐字节一致。
+  两个协议矩阵均经旧 Python 入口及 `XRESCONV_CLI_BIN` 使用本地编译程序。
+- 必要样本复制到测试临时目录，后端日志/参考输出/转换输出都留在临时目录，不依赖外部目录可写。
+  缺少环境、JAR、样本或参考产物均失败，不能当作跳过后成功。
+
+### 覆盖率、制品与静态检查
+
+- cargo-llvm-cov 0.9.1 + 工具链配套 LLVM 22.1.8；常规测试后续跑真实后端并合并覆盖数据。
+  `--ignore-filename-regex '[/\\]tests[/\\]'` 排除独立测试文件；统计 src 模块，包含模块内单元测试代码。
+  行覆盖 **1586/1692 = 93.74%**，函数 **157/173 = 90.75%**，区域 **2701/2883 = 93.69%**；90% 行门禁通过。
+  JSON 位于 `target/coverage-summary.json`，HTML 位于 `target/llvm-cov/html/index.html`。
+  稳定工具链未采集分支覆盖；结果仅代表 Windows 编译分支，系统资源失败和其他 OS 路径不能宣称 100% 覆盖。
+- 本机 release 构建通过；`scripts/release.ps1 -Mode Package` 生成 Windows x64 ZIP 与 SHA256。
+  `target/final-release/xresconv-cli-2.0.0-x86_64-pc-windows-msvc.zip` 校验值为
+  `acdf4d38704269d0d7fae0bf828f7e63993a22a27087a8814b9196463445d3bf`。
+  使用实际 Python 安装器解压到独立缓存，版本/帮助/无副作用预览/用户 JAR 真实转表均通过。
+- 自动测试验证 ZIP/TAR 的内容、校验、消费，以及 8 个核心包完整性、错误 tag、缺失包和篡改拒绝；不以伪造平台名的包证明跨平台可执行。
+- actionlint 1.7.12 对三个 workflow 通过；未安装 ShellCheck，因此禁用该可选调用，不宣称执行 ShellCheck。
+  PowerShell 发布脚本解析与实际打包/校验测试通过。
+- Markdown lint 16 份文档、0 问题；40 个修改/新增文本的 UTF-8、换行和空白检查通过。
+  复用已有 js-yaml 5.2.2 / markdown-it 14.3.0，三个 Skill frontmatter、121 个本地引用与 workflow YAML 解析通过。
+  原暂存 fixture 的行末空白仅在工作副本修正，未改动用户索引；最终工作副本用 `git diff HEAD --check` 验证。
+- 工具调用修正：覆盖率续跑不能同时给 `--no-report` 和 `--no-clean`，调整后重新实际执行；
+  一次性安装包脚本最初误用 UTF-8 解码本机 Python 的 GBK stderr，改为按字节捕获后通过，不是产品测试失败。
+
+尚未执行：GitHub 上 15 目标实际构建、其他平台原生测试、首次 tag 公开发布/在线下载、Python 2.7 运行。
+CI 配置覆盖这些构建与测试路径，不能把配置完成或本机交叉检查报告为远程验收完成。
+AI 客户端自动路由/独立启动加载没有因本轮 Rust Skill 正文更新而重新验收。

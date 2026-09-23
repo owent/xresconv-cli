@@ -1,0 +1,217 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust quality gates
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt,clippy
+          cargo +stable fmt --all --check
+          cargo +stable clippy --workspace --all-targets --locked -- -D warnings
+      - name: Minimum Rust version
+        run: |
+          rustup toolchain install 1.88.0 --profile minimal
+          cargo +1.88.0 check --workspace --all-targets --locked
+
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, macos-15, windows-2025, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - run: cargo check --workspace --locked
+      - run: cargo test --workspace --locked
+
+  coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Measure test coverage
+        run: |
+          rustup toolchain install stable --profile minimal --component llvm-tools-preview
+          rustup default stable
+          cargo install cargo-llvm-cov --version 0.9.1 --locked
+          cargo llvm-cov --workspace --locked --lcov --output-path lcov.info --fail-under-lines 90
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: lcov.info
+
+  integration:
+    name: Real xresloader (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: xresloader/xresloader
+          ref: 7263367d99f04af8fca8b1fd80cac29b05f2f6b0 # v2.23.7 peeled commit
+          path: xresloader-src
+          sparse-checkout: sample
+          persist-credentials: false
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Download fixed backend and run integration tests
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path '.e2e' -Force | Out-Null
+          gh release download v2.23.7 --repo xresloader/xresloader --pattern xresloader-2.23.7.jar --dir .e2e
+          if ($LASTEXITCODE -ne 0) { throw 'backend download failed' }
+          $env:XRESCONV_E2E_JAR = (Resolve-Path -LiteralPath '.e2e/xresloader-2.23.7.jar').Path
+          $expected = '1cd8cfe7415adf46eb4b43376b07841d7fca8324b4bac2e0c7248feabeb11503'
+          if ((Get-FileHash -LiteralPath $env:XRESCONV_E2E_JAR -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expected) { throw 'backend checksum mismatch' }
+          $env:XRESCONV_E2E_SAMPLE_DIR = (Resolve-Path -LiteralPath 'xresloader-src/sample').Path
+          cargo test --workspace --locked --test real_backend -- --ignored --nocapture
+          if ($LASTEXITCODE -ne 0) { throw 'real backend tests failed' }
+
+  package:
+    name: Package ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    continue-on-error: ${{ matrix.optional == true }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, smoke: true }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl, smoke: true }
+          - { os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu, smoke: true }
+          - { os: ubuntu-22.04-arm, target: aarch64-unknown-linux-musl, smoke: true }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, smoke: true }
+          - { os: macos-15, target: aarch64-apple-darwin, smoke: true }
+          - { os: windows-2025, target: x86_64-pc-windows-msvc, smoke: true }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc, smoke: true }
+          - { os: windows-2025, target: i686-pc-windows-msvc, smoke: true, optional: true }
+          - { os: ubuntu-24.04, target: i686-unknown-linux-gnu, packages: gcc-multilib, optional: true }
+          - { os: ubuntu-24.04, target: armv7-unknown-linux-gnueabihf, packages: gcc-arm-linux-gnueabihf, linker: arm-linux-gnueabihf-gcc, optional: true }
+          - { os: ubuntu-24.04, target: riscv64gc-unknown-linux-gnu, packages: gcc-riscv64-linux-gnu, linker: riscv64-linux-gnu-gcc, optional: true }
+          - { os: ubuntu-24.04, target: loongarch64-unknown-linux-gnu, packages: gcc-loongarch64-linux-gnu, linker: loongarch64-linux-gnu-gcc, optional: true }
+          - { os: ubuntu-24.04, target: aarch64-linux-android, optional: true }
+          - { os: ubuntu-24.04, target: x86_64-unknown-freebsd, cross: true, optional: true }
+    env:
+      TARGET: ${{ matrix.target }}
+      BUILD_PACKAGES: ${{ matrix.packages }}
+      TARGET_LINKER: ${{ matrix.linker }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add "$TARGET"
+      - name: Linux linkers
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          if [[ "$TARGET" == *-musl ]]; then
+            sudo apt-get update
+            sudo apt-get install -y musl-tools
+            TARGET_LINKER=musl-gcc
+          elif [[ -n "$BUILD_PACKAGES" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y "$BUILD_PACKAGES"
+          fi
+          if [[ "$TARGET" == aarch64-linux-android ]]; then
+            TARGET_LINKER="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+            test -x "$TARGET_LINKER"
+          fi
+          if [[ -n "$TARGET_LINKER" ]]; then
+            name="CARGO_TARGET_${TARGET^^}_LINKER"
+            echo "${name//-/_}=$TARGET_LINKER" >> "$GITHUB_ENV"
+          fi
+      - name: Build
+        shell: bash
+        env:
+          USE_CROSS: ${{ matrix.cross }}
+        run: |
+          if [[ "$USE_CROSS" == true ]]; then
+            cargo install cross --version 0.2.5 --locked
+            cross build --release --locked --target "$TARGET"
+          else
+            cargo build --release --locked --target "$TARGET"
+          fi
+      - name: Smoke test native release binary
+        if: matrix.smoke == true
+        shell: pwsh
+        run: |
+          $exe = "target/$env:TARGET/release/xresconv-cli"
+          if ($env:TARGET -like '*-windows-*') { $exe += '.exe' }
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw 'version smoke failed' }
+          & $exe --help
+          if ($LASTEXITCODE -ne 0) { throw 'help smoke failed' }
+          New-Item -ItemType Directory -Path '.smoke' -Force | Out-Null
+          Set-Content -LiteralPath '.smoke/xresloader.jar' -Value ''
+          Set-Content -LiteralPath '.smoke/list.xml' -Value '<root><list><item file="data.xlsx" scheme="test"/></list></root>'
+          & $exe --test .smoke/list.xml
+          if ($LASTEXITCODE -ne 0) { throw 'preview smoke failed' }
+      - name: Package with checksum
+        shell: pwsh
+        run: ./scripts/release.ps1 -Mode Package -Target $env:TARGET
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: binary-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14

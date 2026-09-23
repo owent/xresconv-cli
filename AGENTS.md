@@ -2,10 +2,10 @@
 
 ## 方向与边界
 
-- 本项目是读取 xresconv-conf 转换列表、调度 xresloader 后端的 CLI；后续重构以 Rust 为目标语言。
-- 新的实现、测试和开发指引围绕 Rust/Cargo 建立。历史资料用于核对兼容行为，不扩展旧技术栈的工具链或教学内容。
-- 当前尚无 `Cargo.toml`、Rust 源码、锁文件或 Rust CI。不得把规划中的目录、命令和测试写成已实现。
-- 本轮初始化只建立工程指引；重构阶段和验收见 [Plan.md](Plan.md)。实际实现任务到来后再创建 Cargo 工程。
+- 本项目是读取 xresconv-conf 转换列表、调度 xresloader 后端的 CLI；自 2.0.0 起为 Rust 实现（单 Cargo package，根 `Cargo.toml`）。
+- 新的实现、测试和开发指引围绕 Rust/Cargo 建立。历史资料（Python 入口）用于核对兼容行为，不扩展旧技术栈的工具链或教学内容。
+- Python 入口（`xresconv-cli.py`、`__main__.py`、`xresconv_cli.py`）为兼容转发层：提示升级并转交 Rust 二进制（`XRESCONV_CLI_BIN` 指定路径，缺失时从 GitHub Releases 下载最新版本），不含实际转表逻辑。
+- 重构阶段和验收见 [Plan.md](Plan.md)。
 - xresloader 与 xresconv-conf 是外部边界；本仓库不承担后端导出引擎的重写。
 
 ## 不可省略的工程原则
@@ -46,7 +46,7 @@
 - 当前文档检查：仓库根执行 `git diff --check`；已有 markdownlint-cli2 时在根执行 `markdownlint-cli2`。
   规则和文件范围在 [.markdownlint-cli2.jsonc](.markdownlint-cli2.jsonc)，工具缺失时记录限制，优先使用已有安装。
 - `git diff --check` 不覆盖未跟踪文件；新文件还须检查格式、UTF-8 编码、引用和 Skill frontmatter。
-- Rust 工程建立后才运行下列命令；工作目录为含根 `Cargo.toml` 的仓库根，依赖和所需组件须可用。
+- Rust 工程已建立（根 `Cargo.toml` + `Cargo.lock`）；以下命令在仓库根执行，是默认门禁：
 
 ```text
 cargo fmt --all --check
@@ -55,8 +55,10 @@ cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
-这些是未来默认门禁，当前未执行。`--locked` 要求已有同步的 `Cargo.lock`；首次建立锁文件在实施任务中完成。
+这些命令要求 `Cargo.lock` 与 `Cargo.toml` 同步；首次执行记录工具链版本。
 根据变更补目标平台、feature 组合及后端集成验证，不能用编译或 mock 通过代替真实转表验收。
+Python 兼容入口测试通过 `XRESCONV_CLI_BIN` 指向本地 Cargo 二进制；真实后端测试默认 `ignored`，
+需配置 `XRESCONV_E2E_JAR`、`XRESCONV_E2E_SAMPLE_DIR` 并显式加 `-- --ignored`，见 [迁移合同](doc/migration-contract.md)。
 
 ## 终端与文件
 

@@ -1,6 +1,20 @@
 更新记录
 ==========
 
+2.0.0
+------
+
+1. 使用 Rust 重写，提供 Linux/macOS/Windows（x64+arm64）预编译二进制，移除 Python 运行时依赖
+2. Python 入口（`xresconv-cli.py`、`__main__.py`、`xresconv_cli.py`）改为兼容转发层：提示升级并转交 Rust 二进制；可用 `XRESCONV_CLI_BIN` 指定二进制路径，缺失时自动从 GitHub Releases 下载最新版本
+3. 修复：`-v/--version` 可独立调用（原 argparse 位置参数必填导致无法单独使用）
+4. 修复：支持 `<output_type output_dir="...">` 属性（原实现遗漏解析）
+5. 修复：java 子进程启动失败计入失败数并输出诊断（原实现线程崩溃但失败数不增加）
+6. 修复：日志着色兼容 `TERM=dumb`
+7. GitHub Actions：六种 OS/架构原生测试、固定后端集成、15 个构建目标；tag 通过完整门禁后自动发布预编译包及校验和
+8. 修复 JVM 参数重复、非正并发静默漏任务、循环 include、scheme 空白/空属性兼容、stdin 引号与相对 Java 路径
+9. 增加取消进程树回收、双输出管道排空、失败状态饱和汇总、XML 编码与内部实体兼容
+10. Python 下载回退、原子缓存安装和离线回归；真实 proto2/proto3 六种格式与直接 Java 调用逐字节对照
+
 1.4.5
 ------
 
