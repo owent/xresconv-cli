@@ -1,3 +1,22 @@
+#![allow(dead_code)] // 各集成测试 crate 只使用 support 中的部分 helper
+
+/// 查找可用的 Python 3 解释器：优先 python3，回退 python、py。
+/// Windows 默认安装可能只有 py 启动器在 PATH，或商店别名 stub 无法运行。
+pub fn find_python() -> &'static str {
+    for candidate in ["python3", "python", "py"] {
+        let ok = std::process::Command::new(candidate)
+            .arg("-c")
+            .arg("import sys;sys.exit(0 if sys.version_info[0] >= 3 else 1)")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if ok {
+            return candidate;
+        }
+    }
+    panic!("Python 3 (python3/python/py) is required for these tests")
+}
+
 pub fn fake_java() -> std::path::PathBuf {
     // Filtered cargo test / coverage commands do not necessarily build examples.
     // Keep compiler output under Cargo's ignored target directory; process-lifetime

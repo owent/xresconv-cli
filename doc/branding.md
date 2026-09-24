@@ -60,8 +60,8 @@ git lfs install --local
 git lfs pull
 ```
 
-两个现有 `doc/snapshoot-*.png` 在当前索引中转换为 LFS 指针，工作区图像字节保持不变。
-这次仅准备当前修改，不重写历史提交，也不提交、推送或上传 LFS 对象。历史中的原始 Git blob 仍保留。
+两个现有 `doc/snapshoot-*.png` 随本次资源变更转换为 LFS 指针，工作区图像字节保持不变。
+迁移从当前版本开始，不重写历史提交；历史中的原始 Git blob 仍保留。
 常规提交和推送时应一起包含规则、资源指针及代码；LFS pre-push hook 负责上传引用的对象。
 
 规则变化后，仅对受影响的已跟踪文件执行规范化，避免暂存无关修改：
@@ -89,6 +89,31 @@ Git LFS 为 3.7.1。运行验证结果以本次实际检查为准。
 - [Windows 图标设计](https://learn.microsoft.com/en-us/windows/win32/uxguide/vis-icons)
 - [winresource 0.1.31 API](https://docs.rs/winresource/0.1.31/winresource/struct.WindowsResource.html)；
   依赖及编译行为同时核对本机缓存的该版本源码和 Cargo.toml。
+
+## 本地验证记录
+
+2026-09-24，在 Windows x64、Rust/Cargo 1.98.0、PowerShell 7.6.6、Git LFS 3.7.1 下执行。
+完整 Cargo 门禁、release、MSRV 和目标检查对应包版本 2.0.1 的图标代码（提交 `93a502c`）；
+随后包版本更新至 2.0.2，另行运行 Windows 图标测试通过，系统读取的 FileVersion、ProductVersion
+均为 2.0.2，OriginalFilename 为 `xresconv-cli.exe`。
+
+- 四项默认 Cargo 门禁全部通过；`cargo test --workspace --locked` 实际执行 84 个测试。
+  新增 Windows 资源测试通过系统 API 读取生成的 EXE，将 7 个图标帧与 ICO 原始字节逐一比对。
+- `cargo test --release --test windows_resources --locked --offline`：1 个测试通过，确认发布优化后仍包含图标。
+- `cargo +1.88.0 check --workspace --all-targets --locked --offline` 通过。
+- Linux x64 GNU、macOS ARM64 的 `cargo check --workspace --target <目标> --locked --offline` 通过；
+  这是 Windows 主机上的目标编译检查，不代表对应系统上的链接或运行验收。
+- Windows ARM64 release 的资源编译成功，但最终链接未通过：本机未找到 MSVC ARM64 交叉链接器，
+  Rust 回退调用 PATH 中的 coreutils `link.exe`。未安装额外工具；ARM64 实际运行仍由原生 CI 验证。
+- 9 种 PNG 尺寸及透明角检查通过；32px 图标和横幅已目视核验。
+  从包含中文和空格的独立目录导出 11 个派生文件，SHA256 与交付资源一致；
+  输入 LFS 指针时导出失败，已有产物保持不变。
+- 15 个资源的 LFS 指针长度、SHA256 与实际文件一致；`git lfs fsck` 通过。
+  两张已有截图与迁移前的 Git blob 内容一致。未在本次验证中执行远端下载或上传验收。
+- markdownlint-cli2 0.23.2 检查 16 个文档通过；Git 差异空白、新增文本 UTF-8、PowerShell 语法检查通过；
+  yq 解析两份 workflow，确认六处 checkout 均启用 LFS。本次未执行远程 CI 验收。
+
+本次新增及更新的命令日志保留于本机忽略目录 `target/branding-validation/`。
 
 ## 原图生成提示词
 

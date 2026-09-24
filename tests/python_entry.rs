@@ -5,20 +5,8 @@
 use std::path::Path;
 use std::process::Command;
 
-fn find_python() -> &'static str {
-    for candidate in ["python3", "python", "py"] {
-        let ok = Command::new(candidate)
-            .arg("-c")
-            .arg("import sys;sys.exit(0 if sys.version_info[0] >= 3 else 1)")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-        if ok {
-            return candidate;
-        }
-    }
-    panic!("Python 3 is required for the compatibility launcher tests")
-}
+mod support;
+use support::find_python;
 
 fn wrapper(python: &str) -> Command {
     let mut cmd = Command::new(python);

@@ -1,5 +1,7 @@
 #![cfg(windows)]
 
+mod support;
+
 #[test]
 fn executable_contains_all_application_icon_frames() {
     // Read actual PE resources through Windows, then compare each embedded PNG
@@ -53,7 +55,7 @@ try:
 finally:
     assert kernel.FreeLibrary(module)
 "#;
-    let output = std::process::Command::new("python")
+    let output = std::process::Command::new(support::find_python())
         .args(["-c", script, env!("CARGO_BIN_EXE_xresconv-cli")])
         .arg(concat!(
             env!("CARGO_MANIFEST_DIR"),
