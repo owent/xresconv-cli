@@ -1,6 +1,8 @@
 xresconv-cli
 ==========
 
+![xresconv-cli：表格批量转换与命令行调度](assets/branding/repository-banner.png)
+
 这是一个符合 [xresconv-conf](https://github.com/xresloader/xresconv-conf) 规范的CLI转表工具，并且使用 [xresloader](https://github.com/xresloader/xresloader) 作为数据导出工具后端。
 
 自 2.0.0 起使用 Rust 实现，提供各平台预编译二进制，不再依赖 Python 运行时。（Python 入口保留为兼容转发层，见下文。）
@@ -31,10 +33,19 @@ Windows/Linux i686、Linux ARM32 和 LoongArch 不提供预编译包；旧 Pytho
 
 也可以从源码构建（需要 Rust 1.88+ 工具链，最新 XML 编码依赖要求此版本）：
 
+源码中的图标、截图和二进制资源使用 [Git LFS](https://git-lfs.com/)；安装 Git LFS 后，在克隆的仓库中执行：
+
+```bash
+git lfs install --local
+git lfs pull
+```
+
 ```bash
 cargo build --release --locked
 # 二进制位于 target/release/xresconv-cli
 ```
+
+Windows 构建会将应用图标和版本信息嵌入 `.exe`，需要 Windows SDK 资源编译器；Linux/macOS 保持命令行程序形态。
 
 使用说明
 ------
@@ -114,6 +125,8 @@ macOS x64 包在 `macos-latest` 上构建和冒烟。
 
 示例截图
 ------
+
+应用图标、多尺寸 PNG、Windows ICO 和项目横幅见 [静态资源说明](doc/branding.md)，包含设计、导出与 LFS 维护方法。
 
 ![示例截图-1](doc/snapshoot-1.png)
 

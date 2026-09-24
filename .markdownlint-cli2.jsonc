@@ -9,6 +9,7 @@
   "globs": [
     "AGENTS.md",
     "doc/migration-contract.md",
+    "doc/branding.md",
     ".agents/skills/**/*.md",
     "doc/ai/**/*.md"
   ],

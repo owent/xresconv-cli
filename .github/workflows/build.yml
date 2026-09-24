@@ -20,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          lfs: true
           persist-credentials: false
       - name: Rust quality gates
         run: |
@@ -42,6 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          lfs: true
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
@@ -60,6 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          lfs: true
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
@@ -102,6 +105,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          lfs: true
           persist-credentials: false
       - name: Install Rust
         shell: bash
