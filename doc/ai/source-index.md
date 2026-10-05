@@ -9,6 +9,10 @@
 
 ## 本地基线
 
+2026-10-05 复核：当前 [Cargo.toml](../../Cargo.toml) 版本为 2.0.2，MSRV 为 1.88，仍为单 Cargo package。
+CLI 参数与示例核对 `src/cli.rs`、`src/lib.rs`、`src/xml_conf.rs`、`src/plan.rs` 和 `src/runner.rs`；
+开发及截图验证见 [验证记录](validation.md)。以下初始化与早期验收记录保留为历史依据。
+
 - `source_version`：`656c7e3d44efee978334e0364eb7de0fe3c8778c`；`method`：Git、文件清单及源码静态阅读。
 - 指引初始化阶段的 `git status --short` 无输出；当时无上级或仓库级 AGENTS 规则。
   2026-09-23 更新：Rust 2.0.0 工程已建立（根 `Cargo.toml`/`Cargo.lock`、`src/`、`tests/`、`.github/workflows/`），门禁全绿。
@@ -49,6 +53,7 @@ git grep -n -e load_xml_file -e load_global_options -e load_list_item_nodes -e w
 | CI4 | setup-python 的 `3.x` 取最新稳定 Python 3；Python 无单独 LTS 系列 | [Python setup][setup-python]、[Python 版本状态][python-versions] | 官方文档核验；外部 Java LTS 动态查询已从 CI 移除 | build.yml 环境选择 |
 | CI5 | GitHub Release 资产 digest 与 Git LFS 按路径物化曾用于跨仓库集成 job | [Release API][release-api]、[Git LFS pull][lfs-pull]、[Git LFS 配置][lfs-config] | 历史故障见验证记录；当前 CI 不下载 xresloader 资产 | 历史 CI 故障依据 |
 | CI3 | Linux、macOS、Windows 的 x64/arm64 原生 runner 标签 | [官方 runner 表][runners] / 2026-09-23 | 第三次 CI 普通测试、覆盖率和 8 个核心包构建/冒烟通过；外部后端 job 已移除 | build.yml 核心测试矩阵 |
+| CI6 | 当前公开稳定 Release 为 v2.0.2，含 11 包及 11 个 SHA256 文件 | [latest API](https://api.github.com/repos/owent/xresconv-cli/releases/latest) / v2.0.2 | 2026-10-05 只读查询 tag、公开状态及 22 个资产；本次未下载或运行公开包 | README、迁移合同 |
 | T4 | cargo-llvm-cov 0.9.1 / actionlint 1.7.12 | [覆盖率工具][llvm-cov]、[actionlint][actionlint] | crates.io / GitHub API 核验；本机运行，actionlint ZIP 校验官方 asset digest | 覆盖率与 CI 静态检查 |
 
 Cargo.toml 使用显式 `^` 兼容更新范围；Cargo.lock 固定已验证的实际版本。
@@ -57,11 +62,13 @@ JAR 校验与运行记录见 [验证记录](validation.md)：用户本机包与�
 
 ## 安装与兼容范围
 
-`installed_version` 为本机快照，不是项目最低版本或团队统一版本；探测退出码均为 0。
+以下 `installed_version` 为 2026-09-23 本机快照，不是当前版本、项目最低版本或团队统一版本；当时探测退出码均为 0。
+2026-10-05 实际使用 Rust/Cargo 1.98.1、Python 3.14.8、PowerShell 7.6.6、Node.js 24.21.0、
+markdownlint-cli2 0.23.3 和 Git LFS 3.8.0；未重新探测其他 AI 客户端或验收其加载行为。
 
 | 对象 | 本机版本 / 检测方式 | 当前结论 |
 | --- | --- | --- |
-| Codex CLI | `0.155.0-alpha.16`，`codex --version` | 本会话客户端；新文件的独立启动加载尚未验收 |
+| Codex CLI | `0.155.0-alpha.16`，`codex --version` | 当时的会话客户端；新文件的独立启动加载尚未验收 |
 | Kilo Code CLI | `7.4.21`，`kilo --version` | 两处 cwd 的 Skill 发现已验证；团队使用清单待确认 |
 | PowerShell | `7.6.6`，`$PSVersionTable.PSVersion` | 本次实际 shell |
 | Rust / Cargo | `1.98.0`，`rustc --version` / `cargo --version` | 本地常规工具链；项目 MSRV 1.88.0 已额外安装并实测 |

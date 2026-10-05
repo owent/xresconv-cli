@@ -1,6 +1,6 @@
 # Rust 2.0 迁移合同与测试映射
 
-核验日期：2026-09-23。Python 行为基线为 `656c7e3d44efee978334e0364eb7de0fe3c8778c`；
+核验日期：2026-10-05（当前源码版本 2.0.2）。Python 行为基线为 `656c7e3d44efee978334e0364eb7de0fe3c8778c`；
 当前单 Cargo package 的实现按 CLI、XML、选项、规划、执行、进程树和颜色输出分工。
 运行证据与发布状态见 [验证记录](ai/validation.md)。
 
@@ -16,6 +16,7 @@
 | 局部 scheme | 局部键覆盖默认键；保留重复局部值原始空白；file/scheme 任一为空时使用内联 scheme | `tests/regressions.rs` |
 | 输出矩阵 | tag/class 各自任一匹配，两类同时受限时需同时匹配；全局、局部、尾部选项顺序不变 | `src/plan.rs`、`tests/sample_conf.rs` |
 | 路径与 Java | 主配置目录加 work_dir；CLI `-J`、JAVA_HOME、PATH 顺序；JVM 参数与 stdin 分开传输 | `tests/cli_integration.rs` |
+| 预览 | `--test` 检查 XML、工作目录和 JAR 存在性，生成命令但不启动 Java、不写导出文件；不校验后端内容 | `src/lib.rs`、`src/runner.rs`、`tests/cli_integration.rs` |
 | 日志 | stdout/stderr 分别排空、保留 Unicode；沿用日志级别着色与 CPRINTF_MODE | `src/runner.rs`、`src/color.rs`、集成测试 |
 | Python 入口 | 三个脚本和目录调用打印升级提示；转交参数、工作目录、标准流及退出状态 | `tests/python_entry.rs` |
 | 下载 | 环境指定路径、缓存、最新稳定 Release；校验 SHA256；失败不损坏缓存；并发原子安装 | `tests/test_python_shim.py`，由 Cargo 调用 |
@@ -23,6 +24,8 @@
 Java 进程数不超过请求的正整数并发上限，也不超过实际命令批次数。每条命令从队列取出一次；
 写入失败不盲目重试，避免重复执行已发送的转换。进程/管道/剩余任务失败均使最终状态非零。
 正常退出码聚合饱和为 255；配置读取保留 -2、缺失 JAR 保留 -4（Unix 分别为 254、252）。
+CLI `-j Xmx512m` 自动补前导 `-`；XML `<java_option>-Xmx512m</java_option>` 原样传递。
+`-s` 只匹配 item 的 `scheme` 属性，可重复指定；没有该属性的内联 scheme 项不会匹配这个筛选。
 
 ## 明确修正的历史缺陷
 
@@ -58,9 +61,11 @@ XML 的 `option` 仍是已有后端命令片段，其内部引号由配置作者
   不修改 XML/输入数据，不自动删除旧版。已缓存二进制不会在每次启动时联网升级。
 - Python 下载只读取官方仓库 API/制品，限时限量；从压缩包只复制唯一的普通二进制文件，拒绝链接、空文件和路径穿越。
 
-解耦后的 [常规 CI](https://github.com/owent/xresconv-cli/actions/runs/35871630941) 18 个 job 全部通过；
+2026-09-23 的发布验收：解耦后的 [常规 CI](https://github.com/owent/xresconv-cli/actions/runs/35871630941) 18 个 job 全部通过；
 [首次 tag 流程](https://github.com/owent/xresconv-cli/actions/runs/35872817845) 已公开 `v2.0.0` 与 11 个平台包。
 公开 Release 的规范资产 URL 使用 `owent/xresconv-cli`，暴露旧 Python 入口只接受旧组织路径的问题；
-`v2.0.1` 已修复并公开发布；tag 流程 20 个 job 全部通过，旧 Python 入口已从空缓存下载并运行最新版本。
+`v2.0.1` 已修复并公开发布；tag 流程 20 个 job 全部通过，旧 Python 入口已从空缓存下载并运行当时的最新版本。
+2026-10-05 查询官方 latest API，当前公开稳定版本为 [v2.0.2](https://github.com/owent/xresconv-cli/releases/tag/v2.0.2)，
+包含 11 个平台包及各自的 SHA256 文件。本次仅查询发布元数据，未重跑公开制品下载或跨平台运行验收。
 实际结果见 [验证记录](ai/validation.md)。
 规则注入、Skill 发现和 Python 2.7 运行不属于当前验收范围。Windows 本地覆盖率只覆盖本平台编译分支。

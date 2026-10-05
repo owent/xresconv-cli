@@ -1,8 +1,9 @@
-# AI 指引验证
+# 工程与 AI 指引验证
 
 ## 文档检查
 
-执行目录：仓库根。检查范围：`AGENTS.md`、`doc/migration-contract.md`、`.agents/skills/**/*.md`、`doc/ai/**/*.md`。
+执行目录：仓库根。检查范围：`README.md`、`HISTORY.md`、`AGENTS.md`、`doc/migration-contract.md`、
+`doc/branding.md`、`.agents/skills/**/*.md`、`doc/ai/**/*.md`。
 配置见 [.markdownlint-cli2.jsonc](../../.markdownlint-cli2.jsonc)：启用默认规则，行长 160，表格不检查行长。
 该例外避免为了长路径和来源 URL 破坏表格；其余规则不全局关闭。
 
@@ -11,13 +12,14 @@ markdownlint-cli2
 git diff --check
 ```
 
-本机 CLI 不在 PATH，本次使用已有 `markdownlint-cli2@0.23.2` 的 `markdownlint-cli2-bin.mjs`：
+CLI 不在 PATH 时，可复用已有安装的 `markdownlint-cli2-bin.mjs`：
 用 `node <实际安装目录>/markdownlint-cli2-bin.mjs` 在仓库根调用。不要直接执行同包的库模块，它不等于运行 lint。
 没有现成工具时记录未执行项，不为纯文档任务引入产品运行时依赖。
 
 新文件尚未跟踪时补查编码、换行、空白和引用；`git diff --check` 单独通过不能覆盖新文件。
 Skills 使用 YAML 解析器检查 frontmatter，核对 name/description 长度、名称与目录、允许字段及相对资源可达性。
 静态格式校验不能替代客户端发现与任务执行评估。
+`CLAUDE.md` 是单行 `@AGENTS.md` 导入桥接，不纳入要求首行标题的正文 lint；核对导入目标是否存在。
 
 ## 客户端加载验收
 
@@ -295,3 +297,30 @@ actionlint 1.7.12 验证现行四个 job 和 11 个制品目标，仍仅过滤�
   其他目标由各自 CI runner 在打包前运行冒烟；Android、RISC-V、FreeBSD 仅尽力构建与解压。
 - 修复后的旧 Python 入口在独立空缓存、`XRESCONV_CLI_BIN` 指向不存在路径时，
   从公开 latest Release 下载并校验 Windows x64 包，转交运行得到 `2.0.1`、退出 0。
+
+## 2026-10-05 文档与截图核对
+
+在 Windows x64 上核对源码版本 2.0.2；使用 Rust/Cargo 1.98.1、Python 3.14.8、PowerShell 7.6.6、
+Node.js 24.21.0、markdownlint-cli2 0.23.3 和 Git LFS 3.8.0。
+
+- README 的参数、路径、scheme 筛选、JVM 参数和预览边界与当前源码及实际输出核对；
+  `--help` 修正重复尖括号、无效的 `Xmx=2048m` 示例及说明文字，没有改变参数解析或调度行为。
+- 用 [示例配置](../examples/convert.xml) 和 [截图脚本](../../scripts/export-doc-screenshots.ps1) 实际离线运行：
+  全量预览为 4 条命令，筛选 `scheme_upgrade` 后为 2 条；版本覆盖、JVM 参数和尾部 `--pretty 2` 均符合说明。
+  脚本只在独立临时目录创建空 JAR，未启动 Java 或执行转换。原始输出保留于 `target/doc-screenshots/`。
+- 两张 PNG 已目视检查。截图脚本从含中文及空格的独立工程和工作目录运行成功，重复导出 SHA256 与文档图片一致；
+  缺失二进制和无效 XML 均以非零状态失败，不覆盖已有图片，临时 XML/JAR/工作目录已清理。
+- 截图和图标导出脚本的 PowerShell AST 检查通过，`Get-Help -Full` 可读到正文及示例。
+  图标脚本只调整帮助注释，未重新导出图标；非帮助注释与帮助块之间的空行依据
+  [PowerShell 官方语法](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comment_based_help#syntax-for-comment-based-help)。
+- `cargo fmt --all --check`、`cargo check --workspace --locked --offline`、
+  `cargo test --workspace --locked --offline`、`cargo clippy --workspace --all-targets --locked --offline -- -D warnings`
+  全部通过；84 个 Rust 测试通过，包含由 Cargo 调用的 Python 离线测试入口。
+- Markdown 检查扩展到 README 和 HISTORY，18 个正文文件无问题；19 个 Markdown 文件的 99 处仓内文件/锚点引用通过。
+  新 XML 解析、UTF-8、修改的 Markdown CRLF、新文件空白及 `git diff --check` 通过。
+  两张 PNG 的 LFS 属性正确，`git lfs fsck --objects` 通过；这些检查不证明远端新对象已上传。
+- 官方 latest API 返回 [v2.0.2](https://github.com/owent/xresconv-cli/releases/tag/v2.0.2)，公开且非预发布，
+  11 个平台包均有同名 SHA256 资产；xresconv-conf 的 main 仍为来源索引中的固定提交。
+  本次只查询元数据，未下载或运行公开包，未运行真实 xresloader 或跨平台验收，也未提交、推送或发布。
+
+Cargo 与脚本检查产物保留于本机忽略目录 `target/doc-screenshots-validation/`。

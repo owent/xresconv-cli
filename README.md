@@ -3,14 +3,14 @@ xresconv-cli
 
 ![xresconv-cli：表格批量转换与命令行调度](assets/branding/repository-banner.png)
 
-这是一个符合 [xresconv-conf](https://github.com/xresloader/xresconv-conf) 规范的CLI转表工具，并且使用 [xresloader](https://github.com/xresloader/xresloader) 作为数据导出工具后端。
+这是一个符合 [xresconv-conf](https://github.com/xresloader/xresconv-conf) 规范的 CLI 转表工具，使用 [xresloader](https://github.com/owent/xresloader) 作为数据导出后端。
 
 自 2.0.0 起使用 Rust 实现，提供各平台预编译二进制，不再依赖 Python 运行时。（Python 入口保留为兼容转发层，见下文。）
 
 安装
 ------
 
-从 [GitHub Releases](https://github.com/owent/xresconv-cli/releases) 下载对应平台的预编译包：
+从 [GitHub Releases](https://github.com/owent/xresconv-cli/releases) 下载对应平台的预编译包，并用同名 `.sha256` 文件核对校验和：
 
 | 平台 | 制品 |
 | --- | --- |
@@ -31,7 +31,7 @@ Windows/Linux i686、Linux ARM32 和 LoongArch 不提供预编译包；旧 Pytho
 运行转表需要 `java` 可执行程序（在 PATH 中，或配置 `JAVA_HOME`，或用 `-J` 指定）。
 本工具不校验也不绑定 JDK 版本；实际支持的 JDK 范围由后端 xresloader 决定。
 
-也可以从源码构建（需要 Rust 1.88+ 工具链，最新 XML 编码依赖要求此版本）：
+也可以从源码构建（[Cargo.toml](Cargo.toml) 声明最低 Rust 版本为 1.88）：
 
 源码中的图标、截图和二进制资源使用 [Git LFS](https://git-lfs.com/)；安装 Git LFS 后，在克隆的仓库中执行：
 
@@ -50,18 +50,38 @@ Windows 构建会将应用图标和版本信息嵌入 `.exe`，需要 Windows SD
 使用说明
 ------
 
-```bash
-xresconv-cli [本脚本选项]... <转换列表文件> [-- [附加xresloader选项]...]
-本脚本选项:
--h, --help                                  帮助信息
--s, --scheme-name <要转换的scheme名称>      按scheme名称指定要转换的表
--v, --version                               显示版本号并退出
--t, --test                                  测试模式（显示运行的脚本，不实际执行）
--p, --parallelism <number>                  正整数并发上限；默认不超过2，实际性能需用自己的数据测量
--j, --java-option                           转递给java的参数（可多个）。比如 -j Xmx2048m
--J, --java-path                             java可执行程序路径
--a, --data-version <version>                数据版本号，将写入到导出的数据文件中。传任意字符串都可以
+```text
+xresconv-cli [CLI 选项]... <转换列表文件> [-- [附加 xresloader 选项]...]
 ```
+
+| 选项 | 作用 |
+| --- | --- |
+| `-h, --help` | 显示帮助，不需要转换列表 |
+| `-v, --version` | 显示版本号并退出，不需要转换列表 |
+| `-s, --scheme-name <scheme>` | 筛选 `<item scheme="...">`；可重复传入，保留任一名称匹配的项目 |
+| `-t, --test` | 预览转换命令，不启动 Java，不生成导出文件 |
+| `-p, --parallelism <number>` | 正整数并发上限；默认根据 CPU 数量取 1 或 2，实际性能需用自己的数据测量 |
+| `-j, --java-option <option>` | 追加 JVM 参数，可重复传入；例如 `-j Xmx2048m`，CLI 自动补前导 `-` |
+| `-J, --java-path <path>` | 指定 Java 可执行文件或 PATH 中的命令名，优先于 `JAVA_HOME` 和默认 `java` |
+| `-a, --data-version <version>` | 覆盖 XML 的 `data_version`；值还须满足下文的 stdin 参数限制 |
+
+配置示例见 [convert.xml](doc/examples/convert.xml)。把它复制为项目的 `convert.xml`，准备后端 JAR、
+`kind.pb` 协议描述和含 `scheme_kind` / `scheme_upgrade` 的 `tables.xlsx`，再根据实际文件修改配置。
+此示例为两张表分别规划 bin 和 JSON 输出；协议及表格内容由自己的 xresloader 项目提供。
+
+路径按以下规则解析：`work_dir` 相对于主转换列表所在目录；`xresloader_path` 及传给后端的协议、数据和输出路径
+相对于该工作目录；`include` 相对于包含它的 XML 文件。CLI 忽略 GUI 专用的分组、分类和脚本配置。
+
+```bash
+xresconv-cli --version
+xresconv-cli --test -p 1 convert.xml
+xresconv-cli -s scheme_upgrade -a release-demo -j Xmx512m convert.xml -- --pretty 2
+```
+
+`--test` 仍会检查 XML、工作目录和 JAR 文件是否存在，但不验证 JAR、协议或表格能否实际转换。
+预览显示 `0 job(s) failed` 只表示规划成功；实际转表请去掉 `--test`。
+附加后端选项放在 `--` 后，避免与 CLI 自身的 `-p`、`-s` 等选项混淆。
+JVM 参数在 CLI 中省略前导 `-`，XML 的 `<java_option>` 则保留完整参数（例如 `-Xmx512m`）。
 
 Python 兼容入口
 ----------------------
@@ -90,7 +110,7 @@ Python 3.14 已实测；兼容层保留旧入口的调用方式。自动测试�
   循环 include 和超过 128 层的 include 会明确报错，不再递归至崩溃。
 - `-J` 显式指定无效路径时直接报错；相对 Java 路径在切换后端工作目录前解析。
   Ctrl+C/终止信号会停止并回收本次后端进程树，以 130 退出。
-- CLI 尾部参数保留空格边界；stdin 参数按 xresloader 实际分词协议选择单双引号。
+- CLI 尾部参数保留空格边界；stdin 参数按已核验的 xresloader 2.23.7 分词协议选择单双引号。
   后端无法表示的组合（例如同时包含两种引号与空格，或换行/NUL）会报错。详细合同见 [迁移合同](doc/migration-contract.md)。
 
 开发与测试
@@ -105,6 +125,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 
 完整本地测试需要 Python 3 和 PowerShell 7（兼容入口/发布脚本测试），正式二进制不需要它们。
 测试包含 [官方 sample 契约](tests/fixtures/)、测试专用 fake-java、进程取消/大量输出/并发、离线下载与缓存、制品校验。
+这些 fixture 保留固定上游版本的路径和内容，用于合同测试；直接运行请使用上面的配置示例。
 Python 入口通过 `XRESCONV_CLI_BIN` 指向本地 Cargo 二进制；不会下载发布版本。
 fake-java 在测试独立目录内从当前源码构建，过滤测试和覆盖率运行不会复用陈旧替身。
 覆盖率与测试证据见 [验证记录](doc/ai/validation.md)，不将单个平台的覆盖率视为所有平台分支的完整证明。
@@ -117,17 +138,24 @@ macOS x64 包在 `macos-latest` 上构建和冒烟。
 发布流程
 --------
 
-推送与 `Cargo.toml` 版本一致的 tag（如 `v2.0.1` 或 `2.0.1`）会触发 [release.yml](.github/workflows/release.yml)。
+推送与 `Cargo.toml` 版本一致的 tag（当前如 `v2.0.2` 或 `2.0.2`）会触发 [release.yml](.github/workflows/release.yml)。
 流程复用完整构建/测试门禁，检查全部 8 个核心制品及 SHA256，上传完毕后自动公开 Release。
 预发布版本标记 prerelease，不替换 latest；上传失败保留草稿，已公开版本拒绝覆盖。
 常规 push/PR 同样构建并保存跨平台包为 Actions artifacts，扩展平台失败不阻塞核心发布。
-本地可用 `pwsh -NoProfile -File scripts/release.ps1 -Mode Tag -Tag v2.0.1` 检查 tag。
+本地可用 `pwsh -NoProfile -File scripts/release.ps1 -Mode Tag -Tag v2.0.2` 检查 tag。
 
 示例截图
 ------
 
 应用图标、多尺寸 PNG、Windows ICO 和项目横幅见 [静态资源说明](doc/branding.md)，包含设计、导出与 LFS 维护方法。
 
-![示例截图-1](doc/snapshoot-1.png)
+以下为 Rust CLI 的实际终端输出快照，使用 [示例配置](doc/examples/convert.xml) 和 `--test`。
+截图生成方法与预览边界见 [资源说明](doc/branding.md#终端输出截图)。
 
-![示例截图-2](doc/snapshoot-2.png)
+显示版本，并预览全部表的两种输出：
+
+![Rust CLI 版本和全部转换命令预览](doc/snapshoot-1.png)
+
+只预览 `scheme_upgrade`，覆盖数据版本、追加 JVM 参数并转发 `--pretty 2`：
+
+![按 scheme 筛选并追加参数的命令预览](doc/snapshoot-2.png)
