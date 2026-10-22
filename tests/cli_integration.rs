@@ -433,28 +433,35 @@ fn builtin_parallelism_preserves_task_order_and_aggregates_real_task_failures() 
         <item file="b.xlsx" scheme="fake_java_fail"/>
         <item file="c.xlsx" scheme="last"/></list></root>"#,
     );
-    let output = bin()
-        .env("FAKE_JAVA_VERSION", "2.24.0-beta")
-        .args(["-p", "4", "-J"])
-        .arg(support::fake_java())
-        .arg(list)
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(2), "{output:?}");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.matches("[ARGS]").count(), 1);
-    let tasks: Vec<_> = stdout
-        .lines()
-        .filter(|line| line.starts_with("[INFO] fake java got:"))
-        .collect();
-    assert_eq!(tasks.len(), 6);
-    for (index, file) in ["a.xlsx", "a.xlsx", "b.xlsx", "b.xlsx", "c.xlsx", "c.xlsx"]
-        .iter()
-        .enumerate()
-    {
-        assert!(tasks[index].contains(file));
-        assert!(tasks[index].contains(if index % 2 == 0 { "-t bin" } else { "-t json" }));
-        assert!(!tasks[index].contains("--parallelism"));
+    let ansi_sgr = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+    for mode in ["none", "term"] {
+        let output = bin()
+            .env("CPRINTF_MODE", mode)
+            .env("FAKE_JAVA_VERSION", "2.24.0-beta")
+            .args(["-p", "4", "-J"])
+            .arg(support::fake_java())
+            .arg(&list)
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "{mode}: {output:?}");
+        assert_eq!(output.stdout.contains(&0x1b), mode == "term");
+        // Match task contents independently of the terminal's ANSI decoration.
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout = ansi_sgr.replace_all(&raw_stdout, "");
+        assert_eq!(stdout.matches("[ARGS]").count(), 1);
+        let tasks: Vec<_> = stdout
+            .lines()
+            .filter(|line| line.starts_with("[INFO] fake java got:"))
+            .collect();
+        assert_eq!(tasks.len(), 6, "{mode}: {stdout}");
+        for (index, file) in ["a.xlsx", "a.xlsx", "b.xlsx", "b.xlsx", "c.xlsx", "c.xlsx"]
+            .iter()
+            .enumerate()
+        {
+            assert!(tasks[index].contains(file));
+            assert!(tasks[index].contains(if index % 2 == 0 { "-t bin" } else { "-t json" }));
+            assert!(!tasks[index].contains("--parallelism"));
+        }
     }
 }
 

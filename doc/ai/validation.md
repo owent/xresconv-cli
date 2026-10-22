@@ -375,3 +375,17 @@ Cargo 与脚本检查产物保留于本机忽略目录 `target/doc-screenshots-v
   本地 Windows x64 包完成 SHA256 核对、解压、版本/帮助、预览及 fake-java 转换冒烟：版本为 2.1.0，
   新版后端分支只启动一个转换 JVM，默认 auto，两条任务完成且退出 0。
 - 本地打包验证与远程 Release 验收分别记录；本条不代表远程构建或公开发布已经完成。
+
+## 2026-10-22 v2.1.0 CI 颜色环境修复
+
+- [首次 Release 工作流](https://github.com/owent/xresconv-cli/actions/runs/39800176224) 的编译和平台打包通过，
+  五个平台的测试与 coverage 均在同一任务顺序测试失败，publish 跳过，未产生公开 v2.1.0 Release。
+- 原因是 CI 自动启用 ANSI 颜色，测试用 `[INFO]` 行首筛选已着色日志，把六条已执行任务统计为零。
+  本地设置 `TERM=xterm-256color` 并取消 `CPRINTF_MODE` 覆盖后，先复现相同断言失败。
+- 修复只调整测试：显式覆盖 none/term 两种模式，确认 ANSI 是否存在，再移除 SGR 装饰并检查任务数量、顺序、
+  输出矩阵、单 JVM、启动参数和失败退出码。保留全部业务断言，不调整产品颜色行为或降低 CI 门禁。
+- 定向回归已通过；完整验证使用 `CI=true`、`GITHUB_ACTIONS=true`、`TERM=xterm-256color`，
+  不设置 `CPRINTF_MODE`，避免沿用个人终端环境掩盖问题。
+- Windows 本地完整 99 个 Rust 测试及 13 个 Python 离线 unittest、fmt/check/Clippy 和 18 个 Markdown 文件检查通过。
+  使用官方发布且经 SHA256 核对的 cargo-llvm-cov 0.9.1：`--workspace --locked --lcov --fail-under-lines 90` 退出 0，
+  行覆盖率为 1796/1915 = 93.79%。跨平台结果以重打 tag 后的新工作流为准。
