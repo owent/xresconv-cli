@@ -60,8 +60,8 @@ git lfs install --local
 git lfs pull
 ```
 
-两个现有 `doc/snapshoot-*.png` 随本次资源变更转换为 LFS 指针，工作区图像字节保持不变。
-迁移从当前版本开始，不重写历史提交；历史中的原始 Git blob 仍保留。
+2026-09-24 将两个 `doc/snapshoot-*.png` 转入 LFS，当时工作区图像字节保持不变；
+2026-10-05 按下文方法更新为 Rust CLI 终端输出。LFS 迁移不重写历史提交，历史中的原始 Git blob 仍保留。
 常规提交和推送时应一起包含规则、资源指针及代码；LFS pre-push hook 负责上传引用的对象。
 
 规则变化后，仅对受影响的已跟踪文件执行规范化，避免暂存无关修改：
@@ -78,6 +78,31 @@ git lfs fsck --objects
 `actions/checkout@v7` 均设置 `lfs: true`，在消费资源前拉取实际内容。
 自动生成的源码归档是否包含 LFS 内容取决于仓库设置；需要完整资源时使用 Git + LFS 克隆。
 
+## 终端输出截图
+
+[截图导出脚本](../scripts/export-doc-screenshots.ps1) 使用当前本地 Rust 二进制和
+[示例配置](examples/convert.xml)，离线生成 README 中的两张终端输出快照：
+
+```powershell
+cargo build --locked
+pwsh -NoLogo -NoProfile -NonInteractive -File scripts/export-doc-screenshots.ps1
+```
+
+依赖 Windows + PowerShell 7、System.Drawing 和本机 Consolas 字体，不安装工具。
+脚本从任意工作目录可运行；默认读取仓库的 `target/debug/xresconv-cli.exe`，
+也可用 `-BinaryPath` 指定二进制、`-OutputDirectory` 指定图片目录。参数详情见 `Get-Help`。
+
+脚本在 `target/doc-screenshots/` 内建立独立临时工作目录，复制示例 XML，并创建空的 `xresloader.jar`，
+仅满足 `--test` 的文件存在检查。只运行版本查询和命令预览，不启动 Java；结束后清理临时 XML、JAR 和工作目录。
+原始 stdout/stderr 保存在该目录的 `version.*.txt`、`all.*.txt` 和 `filtered.*.txt` 中，供核对。
+
+PNG 根据实际输出排版、着色、展开制表符并折行；只将 NOTICE 中的绝对工作目录缩写为 `<demo directory>`，
+其余命令和日志文字保持原样。第一张包含版本查询和全部输出矩阵；第二张展示 scheme 筛选、数据版本覆盖、
+JVM 参数和 `--` 后的后端选项。图片保留旧文件名以维持引用，并继续由 LFS 管理。
+
+截图中的 `0 job(s) failed` 表示预览规划成功，不是实际转表验收。空 JAR 仅供脚本内预览使用；
+实际转换需要有效的后端 JAR、协议和表格，README 示例不会下载这些外部资源。
+
 ## 来源与核验依据
 
 核验日期：2026-09-24。生成方式为内置 imagegen；本机导出环境为 PowerShell 7.6.6 / System.Drawing，
@@ -90,7 +115,7 @@ Git LFS 为 3.7.1。运行验证结果以本次实际检查为准。
 - [winresource 0.1.31 API](https://docs.rs/winresource/0.1.31/winresource/struct.WindowsResource.html)；
   依赖及编译行为同时核对本机缓存的该版本源码和 Cargo.toml。
 
-## 本地验证记录
+## 2026-09-24 图标验证记录
 
 2026-09-24，在 Windows x64、Rust/Cargo 1.98.0、PowerShell 7.6.6、Git LFS 3.7.1 下执行。
 完整 Cargo 门禁、release、MSRV 和目标检查对应包版本 2.0.1 的图标代码（提交 `93a502c`）；
@@ -109,11 +134,11 @@ Git LFS 为 3.7.1。运行验证结果以本次实际检查为准。
   从包含中文和空格的独立目录导出 11 个派生文件，SHA256 与交付资源一致；
   输入 LFS 指针时导出失败，已有产物保持不变。
 - 15 个资源的 LFS 指针长度、SHA256 与实际文件一致；`git lfs fsck` 通过。
-  两张已有截图与迁移前的 Git blob 内容一致。未在本次验证中执行远端下载或上传验收。
+  当时两张截图与迁移前的 Git blob 内容一致。未在该次验证中执行远端下载或上传验收。
 - markdownlint-cli2 0.23.2 检查 16 个文档通过；Git 差异空白、新增文本 UTF-8、PowerShell 语法检查通过；
   yq 解析两份 workflow，确认六处 checkout 均启用 LFS。本次未执行远程 CI 验收。
 
-本次新增及更新的命令日志保留于本机忽略目录 `target/branding-validation/`。
+当次命令日志保留于本机忽略目录 `target/branding-validation/`；后续文档与截图检查见 [工程验证](ai/validation.md)。
 
 ## 原图生成提示词
 

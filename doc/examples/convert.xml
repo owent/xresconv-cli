@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <global>
+        <work_dir>.</work_dir>
+        <xresloader_path>xresloader.jar</xresloader_path>
+        <proto>protobuf</proto>
+        <proto_file>kind.pb</proto_file>
+        <output_type output_dir="out/bin">bin</output_type>
+        <output_type output_dir="out/json" rename="/(?i)\.bin$/\.json/">json</output_type>
+        <data_version>demo</data_version>
+    </global>
+    <list>
+        <item file="tables.xlsx" scheme="scheme_kind" />
+        <item file="tables.xlsx" scheme="scheme_upgrade" />
+    </list>
+</root>

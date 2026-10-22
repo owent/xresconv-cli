@@ -1,9 +1,10 @@
 #Requires -Version 7.0
+
 <#
 .SYNOPSIS
 Exports PNG sizes and a multi-resolution Windows ICO from the saved artwork.
 .DESCRIPTION
-Requires Windows PowerShell 7 and System.Drawing. Runs offline from any working
+Requires PowerShell 7 on Windows and System.Drawing. Runs offline from any working
 directory. Reads assets/source and overwrites only the generated files in
 assets/icons and assets/branding. Does not regenerate or edit the source artwork.
 Throws on missing/unhydrated sources or invalid dimensions (nonzero script exit).

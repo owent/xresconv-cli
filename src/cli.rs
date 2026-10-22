@@ -16,18 +16,22 @@ pub struct CliOptions {
     #[arg(
         short = 's',
         long = "scheme-name",
-        value_name = "<scheme>",
-        help = "only convert schemes with name <scheme name>"
+        value_name = "scheme",
+        help = "only convert items whose scheme attribute matches this name (repeatable)"
     )]
     pub rule_schemes: Vec<String>,
 
-    #[arg(short = 't', long = "test", help = "test run and show cmds")]
+    #[arg(
+        short = 't',
+        long = "test",
+        help = "preview commands without starting Java; the work directory and JAR must exist"
+    )]
     pub test: bool,
 
     #[arg(
         short = 'p',
         long = "parallelism",
-        value_name = "<number|auto>",
+        value_name = "number|auto",
         default_value_t = crate::options::Parallelism::Auto,
         allow_negative_numbers = true,
         help = "set task parallelism (xresloader >= 2.24: built-in threads; older: Java processes)"
@@ -37,15 +41,15 @@ pub struct CliOptions {
     #[arg(
         short = 'j',
         long = "java-option",
-        value_name = "<java option>",
-        help = "add java options to command(example: Xmx=2048m)"
+        value_name = "java option",
+        help = "add a JVM option without the leading '-' (example: Xmx2048m; repeatable)"
     )]
     pub java_options: Vec<String>,
 
     #[arg(
         short = 'J',
         long = "java-path",
-        value_name = "<java path>",
+        value_name = "java path",
         help = "set path to java"
     )]
     pub java_path: Option<String>,
@@ -53,15 +57,15 @@ pub struct CliOptions {
     #[arg(
         short = 'a',
         long = "data-version",
-        value_name = "<version>",
-        help = "set data version, if set it's will ignore the data_version option in convert list file"
+        value_name = "version",
+        help = "set data version, overriding data_version in the convert list file"
     )]
     pub data_version: Option<String>,
 
     #[arg(
-        value_name = "<convert list file> [-- [xresloader options...]]",
+        value_name = "convert list file / xresloader options",
         num_args = 1..,
-        help = "convert list file(xml) and options will be passed to xresloader.jar"
+        help = "XML convert list file followed by optional xresloader arguments (use -- before backend options)"
     )]
     pub convert_list_file: Vec<String>,
 }
