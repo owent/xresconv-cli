@@ -143,7 +143,7 @@ Skills 使用 YAML 解析器检查 frontmatter，核对 name/description 长度�
 
 - 首先重现 4 个失败回归，再修复空 file/scheme、重复局部 scheme 空白、无效并发、重复 JVM 参数。
   历史 Python 基线与当前 Rust 的 6 组预览命令流逐项一致。
-- `XRESCONV_E2E_JAR` 指向用户提供的 `D:/workspace/github/xresloader/xresloader/target/xresloader-2.23.7.jar`；
+- `XRESCONV_E2E_JAR` 指向用户提供的本地 2.23.7 JAR；
   `XRESCONV_E2E_SAMPLE_DIR` 指向同仓库 sample，显式执行 `cargo test --workspace --locked --test real_backend -- --ignored`。
   用户 JAR 的 SHA256 为 `e6e75293f52cdbfef40c042c2077376ca1abca67842c6ff4fa0f5c25bc2e2829`。
 - 同时下载并校验官方 v2.23.7 Release JAR，SHA256 为
@@ -295,3 +295,43 @@ actionlint 1.7.12 验证现行四个 job 和 11 个制品目标，仍仅过滤�
   其他目标由各自 CI runner 在打包前运行冒烟；Android、RISC-V、FreeBSD 仅尽力构建与解压。
 - 修复后的旧 Python 入口在独立空缓存、`XRESCONV_CLI_BIN` 指向不存在路径时，
   从公开 latest Release 下载并校验 Windows x64 包，转交运行得到 `2.0.1`、退出 0。
+
+## 2026-10-22 xresloader 2.24 内置并发兼容
+
+执行目录为仓库根；Windows，rustc 1.98.0、cargo 1.98.0、PowerShell 7.6.5。
+核验 `v2.24.0-beta` 发布说明及固定 tag 的 `ProgramOptions.java`、`Main.java`，来源见 [X3](source-index.md#外部结论)。
+首次实现验收未下载或执行真实 xresloader JAR；后续复查与手动实测见下节。
+本次没有跨平台运行或远程 CI 验收，也未提交、推送或发布。
+
+- 回归先复现 `2.24.0-beta` 默认仍启动两个转换 JVM，随后实现版本探测与单 JVM 内置并发。
+- fake-java 覆盖 2.23/更老版本、2.24 beta/正式版、后续版本和未知版本，检查默认/显式 `auto`、
+  显式整数、转换 JVM 数、启动参数、任务无重复无遗漏及失败退出码。
+  另测 Java/JVM/JAR/work_dir 继承、探测非零退出回退、空计划和预览不启动 Java。
+- 首次测试覆盖版本解析、64 KiB 输出保留与持续排空；复查随后发现并修复截断识别问题。
+  超时和取消均验证探测进程及后代停止。
+- 首次全量测试在 Python 离线测试创建/清理沙箱临时目录时出现 `WinError 5`。
+  改用忽略目录 `target/parallelism-test-tmp` 作为本次进程的 `TEMP`/`TMP` 后，完整门禁通过；
+  未修改测试断言或产品权限。`CARGO_INCREMENTAL=0` 避免沙箱文件系统的增量缓存硬链接警告。
+- `cargo fmt --all --check`、`cargo check --workspace --locked`、
+  `cargo clippy --workspace --all-targets --locked -- -D warnings` 均退出 0。
+- `cargo test --workspace --locked --quiet` 退出 0：92 个 Rust 测试通过，含 Python 入口调用的 13 个离线 unittest。
+- 现有 npm 缓存中的 markdownlint-cli2 0.23.3 检查 16 份 Markdown，0 问题；`git diff --check` 退出 0。
+
+## 2026-10-22 并发实现复查
+
+- 修复版本探测截断：JVM 启动日志超过 64 KiB 时丢失后续版本，导致 2.24 误回退到多个转换 JVM；
+  截断后的不完整行也可能被误判为有效版本。两项回归均先失败、修复后通过。
+  现在持续识别完整版本行，每行缓存有界；超长行不参与识别，stdout/stderr 都持续排空。
+- 补充短读取、读取中断、EOF 无换行、非 UTF-8 日志、超长行、两路大量探测输出和取消前不启动的验证。
+  新版分支增加显式 `-p 1`、输出矩阵任务顺序、真实任务失败汇总、大量转换输出和 stdin 关闭回归。
+- 修复测试就绪通知竞态：先写完 PID 文件再原子重命名，回收断言要求同时存在后端和后代的两个 PID，
+  避免读取半写入文件或空集合造成误通过。
+- 按用户授权使用本地提供的 2.24.0-beta 后端与转换列表做手动验证；不把外部文件、目录或配置内容加入源码、fixture 或 CI。
+  Java 为 Microsoft OpenJDK 25.0.4.1；导出目录和日志配置使用本任务隔离目录，固定 data_version 后比较 SHA256。
+  `-p 1`、`-p auto`、`-p 4` 均退出 0，各导出 190 个文件，每种方式均只有一个转换 JVM；
+  auto 和 4 与 1 的全部输出 SHA256 相同。`-verbose:class` 场景修复前观察到两个转换 JVM，修复后为一个。
+- 首次手动运行的默认文件日志因外部工作目录只读而创建失败；改为本任务的纯控制台日志配置后，
+  三种并发方式均无 stderr 和错误日志，转换输出一致。外部仓库未改动，手动验证临时输入与输出在完成后清理。
+- 完整 Cargo 门禁通过：fmt、check、Clippy `-D warnings`、99 个 Rust 测试及其调用的 13 个 Python 离线 unittest。
+  全量测试与手动运行曾争用 Windows 可执行文件；等待手动进程完成后重跑测试，退出 0。
+  Markdown 检查与 `git diff --check` 通过；现有 AI 指引/Skills 已覆盖本次流程，未增加重复规则。

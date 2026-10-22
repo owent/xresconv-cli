@@ -57,11 +57,22 @@ xresconv-cli [本脚本选项]... <转换列表文件> [-- [附加xresloader选�
 -s, --scheme-name <要转换的scheme名称>      按scheme名称指定要转换的表
 -v, --version                               显示版本号并退出
 -t, --test                                  测试模式（显示运行的脚本，不实际执行）
--p, --parallelism <number>                  正整数并发上限；默认不超过2，实际性能需用自己的数据测量
+-p, --parallelism <number|auto>             并发任务上限；默认 auto，按 xresloader 版本选择线程或进程
 -j, --java-option                           转递给java的参数（可多个）。比如 -j Xmx2048m
 -J, --java-path                             java可执行程序路径
 -a, --data-version <version>                数据版本号，将写入到导出的数据文件中。传任意字符串都可以
 ```
+
+实际转换前使用配置的 Java/JVM 参数和 JAR 执行一次 `--version` 探测，不依赖 JAR 文件名：
+
+- xresloader >= 2.24（含 `2.24.0-beta`）：只启动一个转换 JVM，使用内置 `--parallelism`。
+  默认及 `-p auto` 传入 `--parallelism auto`，由后端根据 CPU 和 JVM 最大堆选择并发度；`-p N` 传入 `--parallelism N`。
+- 旧版 xresloader：保持多 JVM 调度；默认及 `-p auto` 沿用原有 CPU 计算方式，上限为 2；`-p N` 仍指定进程数上限。
+  不向旧版传入 `--parallelism`。版本探测失败、超时（30 秒）或无法识别时提示警告，并回退到旧版方式。
+- `--test` 不启动 Java，也不探测版本：展示新版的单 JVM 命令，并注明旧版应移除 `--parallelism`、使用相应进程数。
+  空转换计划不探测版本、不启动 Java；取消会停止并回收探测或转换进程树。
+
+实际性能需用自己的数据测量。后端参数依据见 [xresloader 2.24.0-beta 发布说明](https://github.com/owent/xresloader/releases/tag/v2.24.0-beta)。
 
 Python 兼容入口
 ----------------------

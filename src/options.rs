@@ -1,5 +1,44 @@
 use std::collections::HashSet;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Parallelism {
+    #[default]
+    Auto,
+    Jobs(i64),
+}
+
+impl Parallelism {
+    pub fn legacy_workers(self) -> i64 {
+        match self {
+            Self::Auto => crate::default_parallelism(),
+            Self::Jobs(count) => count,
+        }
+    }
+}
+
+impl std::fmt::Display for Parallelism {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Auto => f.write_str("auto"),
+            Self::Jobs(count) => count.fmt(f),
+        }
+    }
+}
+
+impl std::str::FromStr for Parallelism {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.eq_ignore_ascii_case("auto") {
+            return Ok(Self::Auto);
+        }
+        match value.parse::<i64>() {
+            Ok(count) if count > 0 => Ok(Self::Jobs(count)),
+            _ => Err("parallelism must be a positive integer or auto"),
+        }
+    }
+}
+
 /// 保持插入顺序的键值表，用于模拟 Python dict 的插入序迭代行为
 #[derive(Debug, Clone, Default)]
 pub struct OrderedArgs {
@@ -97,7 +136,10 @@ pub struct ConvOptions {
     pub work_dir: String,
     pub xresloader_path: String,
     pub items: Vec<ConvItem>,
+    /// Legacy Java process limit; the backend's built-in task limit is separate.
     pub parallelism: i64,
+    /// Only set after version detection (or for the conditional dry-run plan).
+    pub builtin_parallelism: Option<Parallelism>,
     /// 来自 XML `<java_option>` 的 JVM 参数（原样追加）
     pub java_options: Vec<String>,
     pub java_path: String,
@@ -125,6 +167,7 @@ impl ConvOptions {
             xresloader_path: "xresloader.jar".to_string(),
             items: Vec::new(),
             parallelism: 2,
+            builtin_parallelism: None,
             java_options: Vec::new(),
             java_path: "java".to_string(),
             default_scheme: OrderedMultiMap::default(),

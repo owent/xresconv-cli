@@ -97,6 +97,9 @@ fn test_mode_prints_commands_without_running_java() {
     // 打印 java 命令头与每条转换命令
     assert!(stdout.contains("-jar"));
     assert!(stdout.contains("--stdin"));
+    assert!(stdout.contains("\"--parallelism\" \"auto\""));
+    assert!(stdout.contains("--test skips the version probe"));
+    assert!(stdout.contains("older/unknown versions"));
     assert!(stdout.contains("-p pb"));
     assert!(stdout.contains("-s \"a.xlsx\" -m \"sa\""));
     assert!(stdout.contains("-s \"b.xlsx\" -m \"sb\""));
@@ -339,4 +342,199 @@ fn color_modes_are_resolved_in_isolated_processes() {
         assert!(output.status.success());
         assert_eq!(output.stdout.contains(&0x1b), enabled);
     }
+}
+
+#[test]
+fn backend_version_selects_builtin_or_legacy_parallelism() {
+    let (_dir, list) = setup_workdir(BASIC_XML);
+    for (version, builtin) in [
+        ("2.23.7", false),
+        ("2.9.0", false),
+        ("2.24.0-beta", true),
+        ("2.24.0", true),
+        ("2.25.1", true),
+        ("3.0.0", true),
+        ("Unknown", false),
+    ] {
+        for requested in [None, Some("auto"), Some("1"), Some("4")] {
+            let mut command = bin();
+            command
+                .env("FAKE_JAVA_VERSION", version)
+                .arg("-J")
+                .arg(support::fake_java());
+            if let Some(value) = requested {
+                command.args(["--parallelism", value]);
+            }
+            let output = command.arg(&list).output().unwrap();
+            assert!(
+                output.status.success(),
+                "{version} {requested:?}: {output:?}"
+            );
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let launches: Vec<_> = stdout
+                .lines()
+                .filter(|line| line.starts_with("[ARGS]"))
+                .collect();
+            let expected_workers = if builtin || requested == Some("1") {
+                1
+            } else if requested == Some("4") {
+                2
+            } else {
+                xresconv_cli::default_parallelism() as usize
+            };
+            assert_eq!(
+                launches.len(),
+                expected_workers,
+                "{version} {requested:?}: {stdout}"
+            );
+            if builtin {
+                assert!(launches[0].contains(&format!(
+                    "\"--parallelism\", \"{}\"",
+                    requested.unwrap_or("auto")
+                )));
+            } else {
+                assert!(launches.iter().all(|line| !line.contains("--parallelism")));
+            }
+            assert_eq!(stdout.matches("fake java got:").count(), 2);
+            assert_eq!(stdout.matches("\"a.xlsx\" -m \"sa\"").count(), 1);
+            assert_eq!(stdout.matches("\"b.xlsx\" -m \"sb\"").count(), 1);
+        }
+    }
+}
+
+#[test]
+fn verbose_version_probe_still_selects_one_conversion_jvm() {
+    let (_dir, list) = setup_workdir(BASIC_XML);
+    let output = bin()
+        .env("FAKE_JAVA_VERSION", "2.24.0-beta")
+        .env("FAKE_JAVA_PROBE_VERBOSE", "1")
+        .arg("-J")
+        .arg(support::fake_java())
+        .arg(list)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.matches("[ARGS]").count(), 1);
+    assert!(stdout.contains("\"--parallelism\", \"auto\""));
+    assert_eq!(stdout.matches("fake java got:").count(), 2);
+    assert!(
+        stdout.len() < 4096,
+        "probe logs leaked into conversion output"
+    );
+}
+
+#[test]
+fn builtin_parallelism_preserves_task_order_and_aggregates_real_task_failures() {
+    let (_dir, list) = setup_workdir(
+        r#"<root><global><output_type>bin</output_type><output_type>json</output_type></global>
+        <list><item file="a.xlsx" scheme="first"/>
+        <item file="b.xlsx" scheme="fake_java_fail"/>
+        <item file="c.xlsx" scheme="last"/></list></root>"#,
+    );
+    let output = bin()
+        .env("FAKE_JAVA_VERSION", "2.24.0-beta")
+        .args(["-p", "4", "-J"])
+        .arg(support::fake_java())
+        .arg(list)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.matches("[ARGS]").count(), 1);
+    let tasks: Vec<_> = stdout
+        .lines()
+        .filter(|line| line.starts_with("[INFO] fake java got:"))
+        .collect();
+    assert_eq!(tasks.len(), 6);
+    for (index, file) in ["a.xlsx", "a.xlsx", "b.xlsx", "b.xlsx", "c.xlsx", "c.xlsx"]
+        .iter()
+        .enumerate()
+    {
+        assert!(tasks[index].contains(file));
+        assert!(tasks[index].contains(if index % 2 == 0 { "-t bin" } else { "-t json" }));
+        assert!(!tasks[index].contains("--parallelism"));
+    }
+}
+
+#[test]
+fn failed_version_probe_falls_back_and_builtin_failures_are_reported() {
+    let (_dir, list) = setup_workdir(BASIC_XML);
+    let output = bin()
+        .env("FAKE_JAVA_VERSION", "2.24.0-beta")
+        .env("FAKE_JAVA_VERSION_EXIT", "1")
+        .args(["-p", "2", "-J"])
+        .arg(support::fake_java())
+        .arg(&list)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.matches("[ARGS]").count(), 2);
+    assert!(!stdout.contains("--parallelism"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("version probe"));
+
+    let output = bin()
+        .env("FAKE_JAVA_VERSION", "2.24.0-beta")
+        .env("FAKE_JAVA_EXIT", "7")
+        .arg("-J")
+        .arg(support::fake_java())
+        .arg(&list)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(7));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout)
+            .matches("[ARGS]")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn version_probe_uses_configured_java_options_jar_and_work_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    let xml = r#"<root>
+  <global>
+    <work_dir>sub</work_dir>
+    <xresloader_path>backend/renamed.jar</xresloader_path>
+    <java_option>-Xms16m</java_option>
+    <java_option>--fake-probe-record=probe.txt</java_option>
+  </global>
+  <list><item file="a.xlsx" scheme="sa"/></list>
+</root>"#;
+    let list = write_fixture(dir.path(), "list.xml", xml);
+    write_fixture(dir.path(), "sub/backend/renamed.jar", "");
+    let output = bin()
+        .env("FAKE_JAVA_VERSION", "2.24.0-beta")
+        .args(["-j", "Xmx512m", "-J"])
+        .arg(support::fake_java())
+        .arg(list)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let probe = fs::read_to_string(dir.path().join("sub/probe.txt")).unwrap();
+    assert!(probe.contains("-Xmx512m"));
+    assert!(probe.contains("-Xms16m"));
+    assert!(probe.contains("backend/renamed.jar"));
+    assert!(probe.contains("--version"));
+    assert!(!probe.contains("--stdin"));
+    assert!(!probe.contains("--parallelism"));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.matches("[ARGS]").count(), 1);
+    assert!(stdout.contains("\"--parallelism\", \"auto\""));
+}
+
+#[test]
+fn empty_plan_does_not_probe_or_start_java() {
+    let (dir, list) = setup_workdir("<root/>");
+    let output = bin()
+        .arg("-J")
+        .arg(dir.path().join("no-such-java"))
+        .arg(list)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
 }

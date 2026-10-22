@@ -177,6 +177,15 @@ fn grouped_protocols_and_data_sources_reset_on_including_file() {
 }
 
 fn run_fake(mode: &str, jobs: usize, parallelism: usize) -> std::process::Output {
+    run_fake_version(mode, jobs, parallelism, "2.23.7")
+}
+
+fn run_fake_version(
+    mode: &str,
+    jobs: usize,
+    parallelism: usize,
+    version: &str,
+) -> std::process::Output {
     let dir = tempfile::tempdir().unwrap();
     let mut xml = String::from("<root><list>");
     for i in 0..jobs {
@@ -188,6 +197,7 @@ fn run_fake(mode: &str, jobs: usize, parallelism: usize) -> std::process::Output
     Command::new(env!("CARGO_BIN_EXE_xresconv-cli"))
         .current_dir(dir.path())
         .env("FAKE_JAVA_MODE", mode)
+        .env("FAKE_JAVA_VERSION", version)
         .env("CPRINTF_MODE", "none")
         .arg("-J")
         .arg(support::fake_java())
@@ -242,6 +252,20 @@ fn broken_stdin_is_a_failure_even_when_backend_exits_zero() {
 }
 
 #[test]
+fn builtin_parallelism_reports_broken_stdin_and_drains_large_output() {
+    let output = run_fake_version("exit-early", 4000, 4, "2.24.0-beta");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("backend pipe failed"));
+    let output = run_fake_version("large-output", 41, 4, "2.24.0-beta");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.matches("[ARGS]").count(), 1);
+    assert_eq!(stdout.matches("fake java got:").count(), 41);
+    assert!(stdout.contains("stdout-large-end 中文"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("stderr-large-end 中文"));
+}
+
+#[test]
 fn closed_stdin_does_not_wait_for_a_hanging_backend() {
     let start = std::time::Instant::now();
     let output = run_fake("close-stdin", 4000, 1);
@@ -289,11 +313,21 @@ fn cancellation_reaps_backend_and_descendant() {
         assert!(worker.join().unwrap() > 0);
         assert!(ready.is_file(), "backend did not start");
     });
-    for pid in fs::read_to_string(ready)
+    assert_processes_stopped(&ready);
+}
+
+fn assert_processes_stopped(ready: &std::path::Path) {
+    let pids = fs::read_to_string(ready)
         .unwrap()
         .split_whitespace()
         .map(|s| s.parse::<u32>().unwrap())
-    {
+        .collect::<Vec<_>>();
+    assert_eq!(
+        pids.len(),
+        2,
+        "readiness must include backend and descendant PIDs"
+    );
+    for pid in pids {
         #[cfg(windows)]
         unsafe {
             use windows_sys::Win32::{
@@ -321,6 +355,72 @@ fn cancellation_reaps_backend_and_descendant() {
             );
         }
     }
+}
+
+#[test]
+fn version_probe_timeout_and_cancellation_reap_descendants() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+    for cancel in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let ready = dir.path().join("ready");
+        let mut opts = ConvOptions::new();
+        opts.java_path = support::fake_java().to_string_lossy().into_owned();
+        opts.java_options = vec![
+            "--fake-probe-mode=hang".into(),
+            format!("--fake-ready={}", ready.display()),
+        ];
+        let cancelled = AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            let probe = scope.spawn(|| {
+                xresconv_cli::runner::detect_builtin_parallelism(
+                    &opts,
+                    &[],
+                    dir.path(),
+                    &cancelled,
+                    if cancel {
+                        Duration::from_secs(20)
+                    } else {
+                        Duration::from_secs(2)
+                    },
+                )
+            });
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while !ready.is_file() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            if cancel {
+                cancelled.store(true, Ordering::SeqCst);
+            }
+            let result = probe.join().unwrap();
+            assert!(ready.is_file(), "probe did not start");
+            assert!(
+                result
+                    .unwrap_err()
+                    .contains(if cancel { "cancelled" } else { "timed out" })
+            );
+        });
+        assert_processes_stopped(&ready);
+    }
+}
+
+#[test]
+fn cancellation_before_version_probe_starts_no_process() {
+    let dir = tempfile::tempdir().unwrap();
+    let record = dir.path().join("probe.txt");
+    let mut opts = ConvOptions::new();
+    opts.java_path = support::fake_java().to_string_lossy().into_owned();
+    opts.java_options = vec![format!("--fake-probe-record={}", record.display())];
+    let cancelled = std::sync::atomic::AtomicBool::new(true);
+    let result = xresconv_cli::runner::detect_builtin_parallelism(
+        &opts,
+        &[],
+        dir.path(),
+        &cancelled,
+        std::time::Duration::from_secs(2),
+    );
+    assert!(result.unwrap_err().contains("cancelled"));
+    assert!(!record.exists());
 }
 
 #[test]

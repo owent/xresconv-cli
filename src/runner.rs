@@ -3,7 +3,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use regex::Regex;
 
@@ -64,8 +64,7 @@ fn pump_lines<R: Read>(reader: R, is_stderr: bool) -> std::io::Result<()> {
     Ok(())
 }
 
-/// java 启动前缀：[java_path, -{CLI java option}..., {XML java option}..., -Dfile.encoding, -jar, xresloader, --stdin]
-pub fn java_command_prefix(opts: &ConvOptions, cli_java_options: &[String]) -> Vec<String> {
+fn java_launch_prefix(opts: &ConvOptions, cli_java_options: &[String]) -> Vec<String> {
     let mut java_options: Vec<String> = vec![opts.java_path.clone()];
     for java_option in cli_java_options {
         java_options.push(format!("-{java_option}"));
@@ -76,8 +75,125 @@ pub fn java_command_prefix(opts: &ConvOptions, cli_java_options: &[String]) -> V
     java_options.push("-Dfile.encoding=utf-8".to_string());
     java_options.push("-jar".to_string());
     java_options.push(opts.xresloader_path.clone());
-    java_options.push("--stdin".to_string());
     java_options
+}
+
+/// JVM arguments, then backend-wide stdin/concurrency options (never per-task options).
+pub fn java_command_prefix(opts: &ConvOptions, cli_java_options: &[String]) -> Vec<String> {
+    let mut java_options = java_launch_prefix(opts, cli_java_options);
+    java_options.push("--stdin".to_string());
+    if let Some(parallelism) = opts.builtin_parallelism {
+        java_options.extend(["--parallelism".to_string(), parallelism.to_string()]);
+    }
+    java_options
+}
+
+fn supports_builtin_parallelism(output: &[u8]) -> Option<bool> {
+    static VERSION: OnceLock<Regex> = OnceLock::new();
+    let pattern = VERSION
+        .get_or_init(|| Regex::new(r"^v?(\d+)\.(\d+)(?:\.\d+)?(?:[-+][0-9A-Za-z.+-]+)?$").unwrap());
+    String::from_utf8_lossy(output).lines().find_map(|line| {
+        let version = pattern.captures(line.trim())?;
+        let major = version[1].parse::<u64>().ok()?;
+        let minor = version[2].parse::<u64>().ok()?;
+        Some((major, minor) >= (2, 24))
+    })
+}
+
+fn scan_probe_version(mut reader: impl Read) -> std::io::Result<Option<bool>> {
+    // Scan the entire stream without retaining startup logs. Never parse a partial
+    // oversized line: its prefix could look like a valid version by accident.
+    const LINE_LIMIT: usize = 1024;
+    let mut line = Vec::new();
+    let mut oversized = false;
+    let mut detected = None;
+    let mut buffer = [0; 4096];
+    loop {
+        let count = match reader.read(&mut buffer) {
+            Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
+            result => result?,
+        };
+        if count == 0 {
+            if !oversized {
+                detected = supports_builtin_parallelism(&line).or(detected);
+            }
+            return Ok(detected);
+        }
+        for &byte in &buffer[..count] {
+            if byte == b'\n' {
+                if !oversized {
+                    detected = supports_builtin_parallelism(&line).or(detected);
+                }
+                line.clear();
+                oversized = false;
+            } else if line.len() < LINE_LIMIT {
+                line.push(byte);
+            } else {
+                oversized = true;
+            }
+        }
+    }
+}
+
+/// Probe the configured backend, with the same JVM options, cwd and process-tree ownership.
+pub fn detect_builtin_parallelism(
+    opts: &ConvOptions,
+    cli_java_options: &[String],
+    work_dir: &Path,
+    cancelled: &AtomicBool,
+    timeout: Duration,
+) -> Result<bool, String> {
+    if cancelled.load(Ordering::SeqCst) {
+        return Err("version probe cancelled".to_string());
+    }
+    let prefix = java_launch_prefix(opts, cli_java_options);
+    let mut tree = crate::process::ChildTree::spawn(
+        Command::new(&prefix[0])
+            .args(&prefix[1..])
+            .arg("--version")
+            .current_dir(work_dir)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+    )
+    .map_err(|err| format!("version probe failed to start java: {err}"))?;
+    std::thread::scope(|scope| {
+        let stdout = tree.child.stdout.take().expect("piped stdout");
+        let mut stderr = tree.child.stderr.take().expect("piped stderr");
+        let stdout_reader = scope.spawn(move || scan_probe_version(stdout));
+        let stderr_reader = scope.spawn(move || std::io::copy(&mut stderr, &mut std::io::sink()));
+        let started = Instant::now();
+        let status = loop {
+            if cancelled.load(Ordering::SeqCst) {
+                break Err("version probe cancelled".to_string());
+            }
+            if started.elapsed() >= timeout {
+                break Err("version probe timed out".to_string());
+            }
+            match tree.child.try_wait() {
+                Ok(Some(status)) => break Ok(status),
+                Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+                Err(err) => break Err(format!("version probe wait failed: {err}")),
+            }
+        };
+        tree.kill();
+        let _ = tree.child.wait();
+        // Always join both readers, including failure/cancellation paths.
+        let stdout = stdout_reader.join();
+        let stderr = stderr_reader.join();
+        let status = status?;
+        if !status.success() {
+            return Err(format!("version probe exited with {status}"));
+        }
+        let stdout = stdout
+            .map_err(|_| "version probe stdout reader panicked".to_string())?
+            .map_err(|err| format!("version probe stdout failed: {err}"))?;
+        stderr
+            .map_err(|_| "version probe stderr reader panicked".to_string())?
+            .map_err(|err| format!("version probe stderr failed: {err}"))?;
+        stdout
+            .ok_or_else(|| "version probe returned an unrecognized xresloader version".to_string())
+    })
 }
 
 fn feed_commands(
@@ -264,7 +380,12 @@ pub fn run_workers(
     let cmd_stack = Mutex::new(cmd_list);
     let failed_count = Mutex::new(0i32);
 
-    let worker_count = usize::try_from(parallelism)
+    let process_limit = if opts.builtin_parallelism.is_some() {
+        1
+    } else {
+        parallelism
+    };
+    let worker_count = usize::try_from(process_limit)
         .unwrap_or(usize::MAX)
         .min(cmd_stack.lock().unwrap().len().div_ceil(once_pick_count));
     std::thread::scope(|scope| {
@@ -332,6 +453,82 @@ mod tests {
     use super::*;
 
     #[test]
+    fn backend_version_boundary_includes_prereleases_but_not_unrelated_jvm_logs() {
+        for (version, builtin) in [
+            ("2.23.99", false),
+            ("2.24", true),
+            ("2.24.0-beta", true),
+            ("v2.24.0-beta.1+build", true),
+            ("2.100.0", true),
+            ("3.0.0", true),
+            ("1.99.99", false),
+        ] {
+            assert_eq!(
+                supports_builtin_parallelism(version.as_bytes()),
+                Some(builtin)
+            );
+        }
+        for version in ["Unknown", "java version 21.0.1", "", "2", "2.24.invalid"] {
+            assert_eq!(supports_builtin_parallelism(version.as_bytes()), None);
+        }
+        assert_eq!(
+            supports_builtin_parallelism(b"[INFO] startup\r\n2.24.0-beta\r\n"),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn probe_ignores_oversized_lines_and_still_fully_drains() {
+        let bytes = vec![b'x'; 256 * 1024];
+        let mut input = std::io::Cursor::new(&bytes);
+        assert_eq!(scan_probe_version(&mut input).unwrap(), None);
+        assert_eq!(input.position(), bytes.len() as u64);
+    }
+
+    #[test]
+    fn probe_recognizes_version_after_large_startup_logs() {
+        let mut bytes = vec![b'x'; 256 * 1024];
+        bytes.extend_from_slice(b"\n2.24.0-beta\n");
+        assert_eq!(scan_probe_version(&bytes[..]).unwrap(), Some(true));
+    }
+
+    #[test]
+    fn probe_does_not_parse_a_truncated_line_as_a_version() {
+        let mut bytes = vec![b'x'; 64 * 1024 - 5];
+        bytes.extend_from_slice(b"\n2.24.invalid\n");
+        assert_eq!(scan_probe_version(&bytes[..]).unwrap(), None);
+    }
+
+    #[test]
+    fn probe_handles_short_reads_interruption_and_eof_without_a_newline() {
+        struct ShortReader {
+            bytes: std::io::Cursor<Vec<u8>>,
+            interrupted: bool,
+        }
+        impl Read for ShortReader {
+            fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+                if !self.interrupted {
+                    self.interrupted = true;
+                    return Err(std::io::ErrorKind::Interrupted.into());
+                }
+                self.bytes.read(&mut buffer[..1])
+            }
+        }
+        let mut bytes = b"2.24.0-".to_vec();
+        bytes.extend(std::iter::repeat_n(b'a', 2048));
+        assert_eq!(scan_probe_version(&bytes[..]).unwrap(), None);
+        bytes.extend_from_slice(b"\ninvalid UTF-8: \xff\xfe\r\n 2.23.7 ");
+        assert_eq!(
+            scan_probe_version(ShortReader {
+                bytes: std::io::Cursor::new(bytes),
+                interrupted: false,
+            })
+            .unwrap(),
+            Some(false)
+        );
+    }
+
+    #[test]
     fn io_errors_and_cancellation_are_returned() {
         struct BrokenPipe;
         impl Write for BrokenPipe {
@@ -348,6 +545,7 @@ mod tests {
             }
         }
         assert!(pump_lines(BrokenPipe, false).is_err());
+        assert!(scan_probe_version(BrokenPipe).is_err());
         let stack = Mutex::new(vec![vec!["command".to_string()]]);
         let cancel = AtomicBool::new(false);
         assert!(feed_commands(BrokenPipe, &stack, 1, &cancel).is_err());

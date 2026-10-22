@@ -27,13 +27,12 @@ pub struct CliOptions {
     #[arg(
         short = 'p',
         long = "parallelism",
-        value_name = "<number>",
-        default_value_t = crate::default_parallelism(),
-        value_parser = clap::value_parser!(i64).range(1..),
+        value_name = "<number|auto>",
+        default_value_t = crate::options::Parallelism::Auto,
         allow_negative_numbers = true,
-        help = "set parallelism task number"
+        help = "set task parallelism (xresloader >= 2.24: built-in threads; older: Java processes)"
     )]
-    pub parallelism: i64,
+    pub parallelism: crate::options::Parallelism,
 
     #[arg(
         short = 'j',
@@ -113,7 +112,7 @@ mod tests {
         .unwrap();
         assert_eq!(cli.rule_schemes, ["one", "two"]);
         assert_eq!(cli.java_options, ["Xmx1g", "Dkey=value"]);
-        assert_eq!(cli.parallelism, 3);
+        assert_eq!(cli.parallelism, crate::options::Parallelism::Jobs(3));
         assert_eq!(cli.data_version.as_deref(), Some("last"));
         assert_eq!(cli.convert_list_file, ["list.xml", "-p", "protobuf", "a b"]);
     }
@@ -136,5 +135,19 @@ mod tests {
         assert!(CliOptions::try_parse_from(["x", "-v"]).unwrap().version);
         let err = CliOptions::try_parse_from(["x", "--help"]).unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::DisplayHelp);
+    }
+
+    #[test]
+    fn parallelism_defaults_to_auto_and_preserves_legacy_worker_count() {
+        use crate::options::Parallelism;
+        for args in [vec!["x"], vec!["x", "-p", "auto"], vec!["x", "-p", "AUTO"]] {
+            let cli = CliOptions::try_parse_from(args).unwrap();
+            assert_eq!(cli.parallelism, Parallelism::Auto);
+            assert_eq!(
+                cli.parallelism.legacy_workers(),
+                crate::default_parallelism()
+            );
+        }
+        assert_eq!(Parallelism::Jobs(7).legacy_workers(), 7);
     }
 }

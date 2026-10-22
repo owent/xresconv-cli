@@ -89,7 +89,7 @@ fn run_cli(cli: CliOptions) -> i32 {
     opts.conv_list = conv_list.clone();
     opts.ext_args_l2 = ext_args_l2;
     opts.data_version = cli.data_version.clone();
-    opts.parallelism = cli.parallelism;
+    opts.parallelism = cli.parallelism.legacy_workers();
     opts.java_path = resolve_java_path(&cli.java_path);
 
     // ========================================= XML 解析 =========================================
@@ -172,6 +172,38 @@ fn run_cli(cli: CliOptions) -> i32 {
                 &format!("[ERROR] cannot install cancellation handler: {err}"),
             );
             return 1;
+        }
+    }
+
+    if !cmd_list.is_empty() {
+        if cli.test {
+            cprintln_stdout(
+                Some(Color::Yellow),
+                &format!(
+                    "[NOTICE] --test skips the version probe. Preview for xresloader >= 2.24: one JVM; \
+                     older/unknown versions: omit --parallelism and use up to {} JVM(s).",
+                    opts.parallelism
+                ),
+            );
+            opts.builtin_parallelism = Some(cli.parallelism);
+        } else {
+            match runner::detect_builtin_parallelism(
+                &opts,
+                &cli.java_options,
+                &work_dir,
+                &cancelled,
+                std::time::Duration::from_secs(30),
+            ) {
+                Ok(true) => opts.builtin_parallelism = Some(cli.parallelism),
+                Ok(false) => {}
+                Err(err) if !cancelled.load(std::sync::atomic::Ordering::SeqCst) => {
+                    cprintln_stderr(
+                        Some(Color::Yellow),
+                        &format!("[WARNING] {err}; using legacy Java process parallelism"),
+                    );
+                }
+                Err(_) => {}
+            }
         }
     }
 

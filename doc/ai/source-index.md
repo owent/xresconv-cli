@@ -41,6 +41,7 @@ git grep -n -e load_xml_file -e load_global_options -e load_list_item_nodes -e w
 | R1 | Cargo test 默认执行单元、集成和适用的文档测试；--no-run 只编译 | [cargo test][cargo-test] / rolling | 文档已核验；项目门禁已实际执行（2026-09-23，cargo 1.98.0） | Rust 验证流程 |
 | R2 | rustfmt 支持检查模式；Clippy 支持 Cargo 工程与 lint 级别设置 | [rustfmt][rustfmt]、[Clippy][clippy] / rolling | 官方正文和本机帮助已核验；门禁 fmt/clippy -D warnings 已执行通过 | Cargo 门禁 |
 | X1 | xresconv-conf 提供转换列表规范及 include 示例 | [xresconv-conf][conf] / `dab714ae4ca6a0dc8af5410087ce90e2dfbe687c` | GitHub API 固定 main 快照；fixture 合同测试 | 迁移合同 |
+| X3 | xresloader >= 2.24 的 stdin 并发由启动选项 `--parallelism N\|auto` 控制，默认 auto；`--version` 输出版本字符串 | [发布说明][backend-224-release]、[ProgramOptions.java][backend-224-options]、[Main.java][backend-224-main] / `v2.24.0-beta` | 2026-10-22 GitHub API/固定 tag 源码核验；fake-java 回归及用户提供后端的手动实测，见验证记录 | CLI 默认值、版本探测、单 JVM 调度 |
 | R3 | clap 4.6.7、roxmltree 0.21.1、regex 1.13.1、windows-sys 0.61.2、tempfile 3.27.0；新增 ctrlc 3.5.2、encoding_rs 0.8.41、libc 0.2.189 | [crates.io API][crates-io] / 2026-09-23 max_stable_version | 最新稳定版已查询；Cargo 更新锁文件，encoding_rs 的 MSRV 1.88 已实测 | Cargo.toml/Cargo.lock |
 | X2 | xresloader v2.23.7 release 资产含 `xresloader-2.23.7.jar`，SHA256 见验证记录；样本 Excel 由 Git LFS 管理 | GitHub API / v2.23.7，仓库 `.gitattributes` | 历史本机真实后端验收；第三次 CI 证明外部样本测试不稳定，现已退出门禁 | 历史证据；不作为 CI 资源 |
 | CI1 | checkout v7、upload-artifact v7、download-artifact v8、setup-python v7、stale v11 | [checkout][checkout-action]、[Python setup][setup-python] | 用户要求随大版本接收更新；现行 workflow 已移除 setup-java 和外部后端 job | .github/workflows |
@@ -112,6 +113,9 @@ Codex 与 Kilo 共用根规则和 `.agents/skills/`，目前不需要复制文�
 [conf]: https://github.com/xresloader/xresconv-conf
 [crates-io]: https://crates.io/api/v1/crates
 [backend-parser]: https://github.com/xresloader/xresloader/blob/7263367d99f04af8fca8b1fd80cac29b05f2f6b0/src/org/xresloader/core/Main.java
+[backend-224-release]: https://github.com/owent/xresloader/releases/tag/v2.24.0-beta
+[backend-224-options]: https://github.com/owent/xresloader/blob/v2.24.0-beta/src/org/xresloader/core/ProgramOptions.java
+[backend-224-main]: https://github.com/owent/xresloader/blob/v2.24.0-beta/src/org/xresloader/core/Main.java
 [runners]: https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 [llvm-cov]: https://github.com/taiki-e/cargo-llvm-cov
 [actionlint]: https://github.com/rhysd/actionlint/releases/tag/v1.7.12

@@ -11,8 +11,50 @@ fn main() {
         args.iter()
             .find_map(|a| a.strip_prefix(key).map(str::to_owned))
     };
-    let mode = option("--fake-mode=")
-        .unwrap_or_else(|| std::env::var("FAKE_JAVA_MODE").unwrap_or_default());
+    let version_probe = args.iter().any(|arg| arg == "--version");
+    let probe_mode = option("--fake-probe-mode=").unwrap_or_default();
+    if version_probe && probe_mode.is_empty() {
+        if let Some(record) = option("--fake-probe-record=") {
+            std::fs::write(
+                record,
+                format!("{:?}\n{:?}", &args[1..], std::env::current_dir().unwrap()),
+            )
+            .unwrap();
+        }
+        let verbose = std::env::var_os("FAKE_JAVA_PROBE_VERBOSE").is_some();
+        if verbose {
+            std::io::stdout()
+                .write_all(&vec![b'x'; 256 * 1024])
+                .unwrap();
+            println!();
+            std::io::stderr()
+                .write_all(&vec![b'y'; 256 * 1024])
+                .unwrap();
+            eprintln!();
+        }
+        println!(
+            "{}",
+            std::env::var("FAKE_JAVA_VERSION").unwrap_or_else(|_| "2.23.7".into())
+        );
+        if verbose {
+            std::io::stdout()
+                .write_all(&vec![b'z'; 256 * 1024])
+                .unwrap();
+            println!();
+        }
+        std::process::exit(
+            std::env::var("FAKE_JAVA_VERSION_EXIT")
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(0),
+        );
+    }
+    let mode = if version_probe {
+        probe_mode
+    } else {
+        option("--fake-mode=")
+            .unwrap_or_else(|| std::env::var("FAKE_JAVA_MODE").unwrap_or_default())
+    };
     if mode == "exit-early" {
         return;
     }
@@ -41,11 +83,16 @@ fn main() {
             .arg("--descendant")
             .spawn()
             .unwrap();
-        std::fs::write(
+        let ready = std::path::PathBuf::from(
             option("--fake-ready=").unwrap_or_else(|| std::env::var("FAKE_JAVA_READY").unwrap()),
+        );
+        let pending = ready.with_extension("pending");
+        std::fs::write(
+            &pending,
             format!("{} {}", std::process::id(), descendant.id()),
         )
         .unwrap();
+        std::fs::rename(pending, ready).unwrap();
         let _ = descendant.wait();
         return;
     }
